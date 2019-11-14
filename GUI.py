@@ -13,7 +13,7 @@ class GUI:
         self.condition_dict = self.load_dict('conditions.csv')
 
         self.root = tk.Tk()
-        self.root.title('Priming.py')
+        self.root.title('Superprime GUI')
         # root.geometry("750x700")
         # root.resizable(0, 0)
 
