@@ -1,5 +1,3 @@
-numpy
-spacy==2.0.18
 pandas
 psychopy
 pyglet==1.3.2
