@@ -307,7 +307,7 @@ class SuperPrime:
                 block_dataframe = self.item_data[self.item_data["Block"] == i]
                 if self.RAND_WITHIN_BLOCKS:
                     block_dataframe = block_dataframe.sample(frac=1)
-                    self.practice_list = practice_list.sample(frac=1)
+                    practice_list = practice_list.sample(frac=1)
 
                 self.trial_block_list.append(block_dataframe.reset_index())
 
