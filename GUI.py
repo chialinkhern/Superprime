@@ -175,6 +175,7 @@ class GUI:
             self.config_dict['TIMEOUT'] = self.timeout.get()
             self.config_dict['RAND_WITHIN_BLOCKS'] = self.rand_within_blocks.get()
             self.config_dict['RAND_BLOCKS'] = self.rand_blocks.get()
+            self.config_dict['EEG'] = self.eeg.get()
 
             self.condition_dict['items'] = self.item_list.get()
             self.condition_dict['trial_events'] = self.trial_events.get()
