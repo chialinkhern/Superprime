@@ -53,8 +53,8 @@ class GUI:
 
         frame_image = tk.Frame(self.root)
         frame_image.grid(row=0, columnspan=2, pady=(0, 25))
-        path = 'Misc/superprime.jpg'
-        tk.PhotoImage(file=path)
+        path = 'Misc/superprime.gif'
+        img = tk.PhotoImage(file=path)
         panel = tk.Label(frame_image, image=img)
         panel.grid(row=0)
 
