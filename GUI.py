@@ -4,8 +4,6 @@ import csv
 import os
 import tkinter as tk
 from datetime import datetime
-from PIL import ImageTk, Image
-
 
 class GUI:
     def __init__(self):
@@ -54,7 +52,7 @@ class GUI:
         frame_image = tk.Frame(self.root)
         frame_image.grid(row=0, columnspan=2, pady=(0, 25))
         path = 'Misc/superprime.jpg'
-        img = ImageTk.PhotoImage(Image.open(path).resize((350, 250)))
+        tk.PhotoImage(file=path)
         panel = tk.Label(frame_image, image=img)
         panel.grid(row=0)
 
