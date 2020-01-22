@@ -1,4 +1,4 @@
-from psychopy import visual, core, event, sound
+from psychopy import visual, core, event, sound, parallel
 import pandas as pd
 import csv
 import random
@@ -25,8 +25,13 @@ class SuperPrime:
         self.CONDITION = ''
         self.RAND_BLOCKS = ''
         self.RAND_WITHIN_BLOCKS = ''
-        self.EEG = ''
         self.FEEDBACK = False
+        self.EEG = ''
+        self.port = None
+
+        self.block_num = 0
+        self.trial_num = 0
+        self.event_num = 0
 
         self.item_data = ''
         self.trial_block_list = ''
@@ -37,7 +42,7 @@ class SuperPrime:
         self.config_dict = self.load_dict('config.csv')
         self.condition_dict = self.load_dict('conditions.csv')
 
-        self.win = visual.Window(size=(1000, 600), color=(-1, -1, -1), fullscr=True)
+        self.win = visual.Window(size=(1000, 600), color=(-1, -1, -1), fullscr=False)
 
         self.prepare()
         self.item_data = self.load_data('Stimuli/Item_Lists/' + self.ITEM_LIST + '.csv')
@@ -146,6 +151,7 @@ class SuperPrime:
                                            bold=False,
                                            italic=False)
                 words[i].draw()
+            self.sendEEGTrig(trigger=str(self.block_num)+str(self.trial_num)+str(self.event_num))
             self.win.flip()
             core.wait(duration)
         """
@@ -340,6 +346,7 @@ class SuperPrime:
         """
         This is the experiment function
         """
+        self.detectEEG()
         # get the number of block
         num_blocks = int(self.config_dict['BLOCKS'])
         self.show_instructions('Stimuli/Instructions/main_instructions.txt')
@@ -367,6 +374,7 @@ class SuperPrime:
             num_blocks = len(self.config_dict['NAME_SET'].split(' ')) - 1
             name_flag = True
         for i in range(1, num_blocks + 1):
+            self.block_num = i
             if name_flag:
                 block_name = self.name_set[i]
             else:
@@ -387,12 +395,14 @@ class SuperPrime:
 
         for i in range(num_trials):
             interval = 0
+            self.trial_num = i+1
             row = []
             row.extend((self.EXPNAME, self.SUBJECTID, self.ITEM_LIST, self.CONDITION))
             row.extend((block_num, i + 1))
             row.extend(item_data_frame.iloc[i, 1:-1])
 
             for j in range(num_events):
+                self.event_num = j
                 valid_key_list = ['escape']
                 # esc key is default escape from program
                 event_name = self.trial_event_list[j][0]
@@ -403,10 +413,9 @@ class SuperPrime:
                     duration = 0
                     valid_key_list.extend(key.split())
                 else:
-                    str = self.trial_event_list[j][1][0]
-                    if str == 'W':
+                    type = self.trial_event_list[j][1][0]
+                    if type == 'W':
                         # type 'W' means wait after sound or video fully displayed
-                        type = 'W'
                         duration = float(int(self.trial_event_list[j][1][1:]) / 1000)
                     else:
                         duration = float(int(self.trial_event_list[j][1]) / 1000)
@@ -444,6 +453,7 @@ class SuperPrime:
                         timer = core.Clock()
                         timer.reset()
                         res = self.display_event_words(event_text, duration, None, type)
+
                         row.append(res)
             with open('Output/Data/' + self.FILE_NAME + '.csv', 'a', newline='') as csvfile:
                 filewriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
@@ -474,3 +484,14 @@ class SuperPrime:
         self.RAND_BLOCKS = self.config_dict['RAND_BLOCKS']
         self.RAND_WITHIN_BLOCKS = self.config_dict['RAND_WITHIN_BLOCKS']
         self.EEG = self.config_dict['EEG']
+
+    def detectEEG(self):
+        if self.EEG == "TRUE":
+            self.port = parallel.ParallelPort(address=0x0378)
+
+    def sendEEGTrig(self, trigger):
+        if not trigger or not (self.EEG == "TRUE"):
+            return
+        self.port.setData(trigger)
+        core.wait(0.0005)
+        self.port.setData(0)
