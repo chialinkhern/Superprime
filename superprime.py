@@ -25,6 +25,7 @@ class SuperPrime:
         self.CONDITION = ''
         self.RAND_BLOCKS = ''
         self.RAND_WITHIN_BLOCKS = ''
+        self.EEG = ''
         self.FEEDBACK = False
 
         self.item_data = ''
@@ -472,4 +473,4 @@ class SuperPrime:
                          str(self.SUBJECTID)
         self.RAND_BLOCKS = self.config_dict['RAND_BLOCKS']
         self.RAND_WITHIN_BLOCKS = self.config_dict['RAND_WITHIN_BLOCKS']
-
+        self.EEG = self.config_dict['EEG']
