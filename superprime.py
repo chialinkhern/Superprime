@@ -9,269 +9,241 @@ import collections
 class SuperPrime:
 
     def __init__(self):
+        # variables in this chunk are for logging purposes- they are changed by self.create_log()
+        self.FILE_NAME = ""
+        self.EXP_NAME = ""
+
+        # this chunk sets values for visual.textStim()
         self.EVENT_TEXT_HEIGHT = 0.1
-        self.EVENT_TEXT_FONT = 'Arial'
-        self.EVENT_TEXT_COLOR = 'pink'
-
+        self.EVENT_TEXT_FONT = "Arial"
+        self.EVENT_TEXT_COLOR = "pink"
         self.INSTRUCTION_TEXT_HEIGHT = 0.06
-        self.INSTRUCTION_FONT = 'Arial'
-        self.INSTRUCTION_TEXT_COLOR = 'white'
+        self.INSTRUCTION_FONT = "Arial"
+        self.INSTRUCTION_TEXT_COLOR = "white"
 
-        self.TIME_OUT = 1000
-        self.FILE_NAME = ''
-        self.EXPNAME = ''
-        self.SUBJECTID = ''
-        self.ITEM_LIST = ''
-        self.CONDITION = ''
-        self.RAND_BLOCKS = ''
-        self.RAND_WITHIN_BLOCKS = ''
-        self.FEEDBACK = False
-        self.EEG = ''
+        # this chunk inherits experiment attributes from conditions.csv
+        self.condition_dict = self.load_dict("conditions.csv")
+        self.CONDITION = self.condition_dict["trial_events"]
+        self.ITEM_LIST = self.condition_dict["items"]
+        self.SUBJECT_ID = self.condition_dict["subj_id"]
+
+        # this chunk inherits experiment attributes from config.csv
+        self.exp_config_dict = self.load_dict("config.csv")
+        self.RAND_BLOCKS = self.exp_config_dict["RAND_BLOCKS"]
+        self.RAND_WITHIN_BLOCKS = self.exp_config_dict["RAND_WITHIN_BLOCKS"]
+        self.TIME_OUT = float(self.exp_config_dict["TIMEOUT"])/1000
+        self.KEY_LIST = self.exp_config_dict["KEY"].split(" ")
+        self.BLOCK_NAMES_LIST = self.exp_config_dict["BLOCK_NAMES"].split()
+        # self.TASK is not needed- this variable is only relevant to the GUI
+        self.EEG = self.exp_config_dict["EEG"]
+
+        self.stimuli_df = self.load_df("Stimuli/Item_Lists/" + self.ITEM_LIST + ".csv")
+        self.trial_config_list = self.load_list('Events/' + self.CONDITION + '.csv')
+        self.screen_refresh_rate = 144.0
+
+        # these attributes keep tabs on the status of the experiment
+        self.current_block_num = None
+        self.current_trial_num = None
+        self.current_event_num = None
+        self.key_press = None
+        self.reaction_time = None
+        self.current_trial_series = None
+
+        # this chunk instantiates the psychopy objects that are needed
+        self.window = visual.Window(size=(1920, 1080), color=(-1, -1, -1), fullscr=True)
+        event.globalKeys.clear()
+        event.globalKeys.add(key='q', modifiers=['ctrl', 'alt'], func=self.quit)
+        self.stimulus_text = visual.TextStim(self.window, text=" ",
+                                             height=self.EVENT_TEXT_HEIGHT,
+                                             pos=(0.0, 0.0),
+                                             color=self.EVENT_TEXT_COLOR,
+                                             bold=False,
+                                             italic=False)
+        self.stimulus_text.autoDraw = True
+        self.instr_text = visual.TextStim(self.window, text=" ",
+                                          height=self.INSTRUCTION_TEXT_HEIGHT,
+                                          pos=(0.0, 0.0),
+                                          color=self.INSTRUCTION_TEXT_COLOR,
+                                          bold=False,
+                                          italic=False)
+
+        # this chunk: 1) sets up port if EEG, 2) creates the subject log and 3) runs the experiment
         self.port = None
+        self.detect_eeg()
+        self.create_log()
+        self.experiment()
 
-        self.block_num = 0
-        self.trial_num = 0
-        self.event_num = 0
+    def quit(self):  # quits the experiment
+        core.quit()
 
-        self.item_data = ''
-        self.trial_block_list = ''
-        self.practice_list = ''
-        self.name_set = ''
-        self.item_data_list = ''
+    def load_dict(self, config_file):
+        """ Reads csv files (two columns only!) and returns them as dictionaries. """
+        output = {}
+        f = open(config_file)
+        for line in f:
+            line = (line.strip("\n")).split(",")
+            try:
+                output[line[0]] = line[1]
+            except:
+                print('ERROR in' + config_file + 'in Row {}'.format(line))
+                sys.exit(2)
+        return output
 
-        self.config_dict = self.load_dict('config.csv')
-        self.condition_dict = self.load_dict('conditions.csv')
+    def load_df(self, file_path):
+        """ Reads csv files and returns them as pandas dataframes. """
+        df = pd.read_csv(file_path, header=0, skip_blank_lines=True)
+        df = df.drop(df.columns[0], axis=1)
+        return df
 
-        self.win = visual.Window(size=(1000, 600), color=(-1, -1, -1), fullscr=False)
+    def load_list(self, file_path):
+        """ Reads csv files and returns them as lists. """
+        output = []
+        f = open(file_path)
+        for line in f:
+            line = (line.strip("\n")).split(",")
+            output.append(line)
+        return output
 
-        self.prepare()
-        self.item_data = self.load_data('Stimuli/Item_Lists/' + self.ITEM_LIST + '.csv')
-        self.trial_event_list = self.load_trial_events('Events/' + self.CONDITION + '.csv')
-        if self.verify_items_and_events():
-            self.prepare_pairs()
-            self.experiment()
-            self.show_instructions('Stimuli/Instructions/end.txt')
-        else:
-            print('Data Error!')
+    def display_instructions(self, filepath, name=None):
+        """ Displays instructions line by line, and waits for space bar to continue. """
+        if name is None:  # generic instructions that are applicable to any condition
+            with open(filepath) as f:
+                instruction_list = f.readlines()
+                for i in range(len(instruction_list)):
+                    instruction_text = instruction_list[i]
+                    self.instr_text.text = instruction_text.replace(r"\n", "\n")
+                    self.instr_text.draw()
+                    self.window.flip()
+                    event.waitKeys(keyList=["space"])
+        else:  # instructions that are specific to condition
+            instruction_dict = {}
+            f = open(filepath)
+            for line in f:
+                line = line.strip("\n").split("#")
+                instruction_dict[line[0]] = line[1]
+            instruction_text = instruction_dict[name]
+            self.instr_text.text = instruction_text.replace(r"\n", "\n")
+            self.instr_text.draw()
+            self.window.flip()
+            event.waitKeys(keyList=["space"])
 
-    def display_instruction_words(self, instruction_text):
-        """
-        Get one line from the instruction text and display
-        Wait 'space' to continue
-        """
-        words = visual.TextStim(self.win, text=instruction_text.replace(r'\n', '\n'),
-                                height=self.INSTRUCTION_TEXT_HEIGHT,
-                                pos=(0.0, 0.0),
-                                color=self.INSTRUCTION_TEXT_COLOR,
-                                bold=False,
-                                italic=False)
-        words.draw()
-        self.win.flip()
-        key_press = event.waitKeys(keyList=['space', 'escape'])
-
-        if 'escape' in key_press:
-            core.quit()
-
-    def display_event_words(self, event_text, duration, key_list, type):
-        """
-        When type equals to 'N', all display events will display the time as the input duration
-        when movie and music longer than that duration, just cut it
-        when movie and music shorter than that time, then wait after they end;
-        When type equals to 'W', image and text still display for duration time,
-        for movie and music, wait a duration time after they end.
-        """
-        pos = collections.defaultdict(dict)
-        pos[1][1] = (0, 0)
-        pos[2][1] = (-0.5, 0)
-        pos[2][2] = (0.5, 0)
-        pos[4][1] = (-0.5, 0.5)
-        pos[4][2] = (0.5, 0.5)
-        pos[4][3] = (-0.5, -0.5)
-        pos[4][4] = (0.5, -0.5)
-
+    def display_text(self, num_frames=None, text=None, key_press=False):
+        """ This procedure displays text for the allotted number of frames. """
         timer = core.Clock()
         timer.reset()
-        self.win.flip()
-        if '.jpg' in event_text and '.wav' in event_text:
-            cur_events = event_text.split(' ')
-            pic = {}
-            for i in range(len(cur_events) - 1):
-                pic[i] = visual.ImageStim(self.win, image='Stimuli/Images/' + cur_events[i], size=[0.8, 0.8],
-                                          pos=pos[len(cur_events) - 1][i + 1])
-                pic[i].draw()
-            self.win.flip()
-            audio = sound.Sound('Stimuli/Audio/' + cur_events[-1])
-            audio.play()
-            core.wait(duration)
-            audio.stop()
-        elif '.jpg' in event_text:
-            pictures = event_text.split(' ')
-            pic = {}
-            for i in range(len(pictures)):
-                pic[i] = visual.ImageStim(self.win, image='Stimuli/Images/' + pictures[i], size=[0.8, 0.8],
-                                          pos=pos[len(pictures)][i + 1])
-                pic[i].draw()
-            self.win.flip()
-            core.wait(duration)
-        elif '.avi' in event_text:
-            mov = visual.MovieStim3(self.win, 'Stimuli/Video/' + event_text, noAudio=False)
-            if type == 'N':
-                while mov.status != visual.FINISHED:
-                    mov.draw()
-                    self.win.flip()
-                    if timer.getTime() >= duration:
-                        mov.status = visual.FINISHED
-                used_time = timer.getTime()
-                if duration - used_time > 0:
-                    core.wait(duration - used_time)
-            elif type == 'W':
-                while mov.status != visual.FINISHED:
-                    mov.draw()
-                    self.win.flip()
-                core.wait(duration)
-        elif '.wav' in event_text:
-            audio = sound.Sound('Stimuli/Audio/' + event_text)
-            audio.play()
-            if type == 'N':
-                core.wait(10)
-                audio.stop()
-            elif type == 'W':
-                # core.wait(audio.getDuration())
-                core.wait(10)
-                core.wait(duration)
-                audio.stop()
-        else:
-            texts = event_text.split(' ')
-            words = {}
-            for i in range(len(texts)):
-                words[i] = visual.TextStim(self.win, text=texts[i],
-                                           height=self.EVENT_TEXT_HEIGHT,
-                                           pos=pos[len(texts)][i + 1],
-                                           color=self.EVENT_TEXT_COLOR,
-                                           bold=False,
-                                           italic=False)
-                words[i].draw()
-            self.sendEEGTrig(trigger=str(self.block_num)+str(self.trial_num)+str(self.event_num))
-            self.win.flip()
-            core.wait(duration)
-        """
-        When key_list is None, only return the time for display the event
-        Else return the time of display, key_press, and the time wait until get a keypress
-        """
-        if key_list is None:
-            timeUse = timer.getTime()
-            return round(timeUse * 1000, 4)
-        else:
-            timeUse_display = timer.getTime()
-            timer.reset()
-            # wait for the keypress
-            key_press = event.waitKeys(keyList=key_list, maxWait=self.TIME_OUT)
-            if key_press == None:
-                # get the time uesed for reaction
-                timeUse_action = timer.getTime()
-                return round(timeUse_display * 1000, 4), 'null', round(timeUse_action * 1000, 4)
-            timeUse_action = timer.getTime()
-            if key_press[0] in ['num_1', 'num_2', 'num_3', 'num_4', 'num_5', 'num_6', 'num_7', 'num_8', 'num_9',
-                                'num_0']:
-                key_press[0] = key_press[0][-1]
+        eeg_trigger = str(self.current_block_num) + str(self.current_trial_num) + str(self.current_event_num)
+        if text is None:  # waits for the allotted number of frames, but does not display anything.
+            for frameN in range(num_frames):
+                self.window.flip()
+        else:  # displays text for the allotted number of frames.
+            if key_press is False:
+                for frameN in range(num_frames):
+                    if frameN == 0:
+                        self.stimulus_text.text = text
+                        self.window.flip()
+                        self.send_eeg_trigger(eeg_trigger)
+                    else:
+                        self.window.flip()
+            else:
+                self.stimulus_text.text = text
+                self.window.flip()
+                self.send_eeg_trigger(eeg_trigger)
+                self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)[0]
+                self.reaction_time = round(timer.getTime() * 1000, 4)
 
-            if key_press[0] == 'num_end':
-                key_press[0] = '1'
-            elif key_press[0] == 'num_down':
-                key_press[0] = '2'
+                self.stimulus_text.text = " "
+                self.window.flip()
 
-            if 'escape' in key_press:
-                core.quit()
-            return round(timeUse_display * 1000, 4), key_press[0], round(timeUse_action * 1000, 4)
+    def display_trial(self, trial_series):
+        """ Each trial is made up of a sequence of events. This procedure groups events.
+        For now, this procedure displays text only. """
+        for i, event_time_pair in enumerate(self.trial_config_list):
+            self.current_event_num = i+1  # i+1 so that current_event_nums start at 1
 
-    def show_instructions(self, filePathName, name=None):
-        """
-        Display the main instructions and block instructions
-        For block instructions, display the text according to the block name
-        """
-        if name == None:
-            with open(filePathName) as fp:
-                introduction = fp.readlines()
-            for i in range(len(introduction)):
-                self.display_instruction_words(introduction[i])
-        else:
-            res_dict = {}
-            file = open(filePathName)
-            for line in file:
-                data = (line.strip('\n')).split('#')
-                res_dict[data[0]] = data[1]
-            self.display_instruction_words(res_dict[name])
+            event_name = event_time_pair[0]
+            wait = event_time_pair[1]
+            event_content = trial_series[i]
 
-    def load_dict(self, dict_file):
-        res_dict = {}
-        f = open(dict_file)
-        for line in f:
-            data = (line.strip('\n')).split(',')
+            if wait == "KEY":
+                self.display_text(text=event_content, key_press=True)
+            elif event_name == "ITI":
+                self.display_text(num_frames=wait)
+            else:
+                self.display_text(num_frames=wait, text=event_content)
+
+        self.write_log()
+
+    def display_block(self, block_dataframe):
+        """ This procedure groups trials together to present them as blocks. """
+        num_trials = len(block_dataframe)
+        for i in range(num_trials):
+            self.current_trial_num = i+1  # i+1 so that trial_nums start at 1
+
+            self.current_trial_series = block_dataframe.iloc[i]
+            self.display_trial(self.current_trial_series)
+
+    def experiment(self):
+        """ This procedure puts together the pieces of the experiment into one whole. """
+        practice_df, block_df_list = self.partition_stimuli()
+        task = self.condition_dict["items"].split("_")[0]
+
+        # this chunk converts ms to num frames
+        for i, event_time_pair in enumerate(self.trial_config_list):
             try:
-                res_dict[data[0]] = data[1]
-            except:
-                print('ERROR in' + dict_file + 'in Row {}'.format(data))
-                sys.exit(2)
-        return res_dict
+                event_time_pair[1] = int(self.time_to_frames(event_time_pair[1]))
+            except ValueError:
+                pass
 
-    def load_trial_events(self, trial_event_file):
-        trial_event_list = []
-        f = open(trial_event_file)
-        for line in f:
-            data = (line.strip('\n')).split(',')
-            trial_event_list.append(data)
-        return trial_event_list
+        # this chunk shows introductory instructions
+        self.display_instructions("Stimuli/Instructions/main_instructions.txt")
+        try:
+            self.display_instructions("Stimuli/Instructions/task_instructions1.txt", task)
+            self.display_instructions("Stimuli/Instructions/task_instructions2.txt", task)
+            self.display_instructions("Stimuli/Instructions/task_instructions3.txt", task)
+        except KeyError:
+            print("No corresponding instructions found.")
+            pass
 
-    def load_data(self, filePath):
-        data = pd.read_csv(filePath, header=0, skip_blank_lines=True)
-        return data
+        # this chunk displays the practice block if there is one
+        if len(practice_df) > 0:
+            self.current_block_num = 0
+            self.display_instructions("Stimuli/Instructions/practice_instructions.txt")
+            self.display_block(practice_df)
+            self.display_instructions("Stimuli/Instructions/start_test.txt")
 
-    def verify_items_and_events(self):
-        """
-        Check whether all events are include in item list
-        """
-        self.item_data_list = self.item_data.columns.values.tolist()
-        for i in range(len(self.trial_event_list)):
-            if self.trial_event_list[i][0] not in self.item_data_list:
-                if self.trial_event_list[i][0] != 'ITI':
-                    return False
-        return True
+        # this chunk starts the test blocks
+        num_blocks = len(block_df_list)
+        for block_num in range(1, num_blocks):  # block_num 0 is PRACTICE
+            self.current_block_num = block_num
+            block_name = self.BLOCK_NAMES_LIST[1:][block_num]
+            self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
+            self.display_block(block_df_list[block_num])
+            self.display_instructions("Stimuli/Instructions/block_break.txt")
 
-    def prepare_pairs(self):
-        """
-        This function randomize the order of item_data and return the list of item data for practice
-        and each block
-        A list of things done:
-        1. check whether it has a feedback column, if there is, show image or display sound when the
-        answer is wrong
-        2. when num_blocks is positive, there are only PRACTICE and TEST,
-        and all PRACTICE are list before TEST in csv file, and here random assign TEST to blocks;
-        when num_blocks is negative, there are other Block_Name than PRACTICE and TEST, assign data to block
-        according to the block_name, and shuffle the data in each block. The display order of block is same as
-        the NAME_SET in config file, and always put PRACTICE first.
-        """
+        # participant is done!
+        self.display_instructions("Stimuli/Instructions/end.txt")
 
-        if 'Feedback' in self.item_data.columns.values.tolist():
-            self.FEEDBACK = True
+    def partition_stimuli(self):
+        """ This method takes self.stimuli_df and partitions it, returning Practice and Test blocks. Test blocks will be
+        appropriately named if relevant. If not, they will just be called TEST. """
+        num_blocks = int(self.exp_config_dict["BLOCKS"])
+        num_trials = int(len(self.stimuli_df))
 
-        num_blocks = int(self.config_dict['BLOCKS'])
-        self.name_set = self.config_dict['NAME_SET'].split()
-        num_items = len(self.item_data)
-
-        if self.RAND_BLOCKS:
-            copy = self.name_set[1:]
+        if self.RAND_BLOCKS == "TRUE":  # randomizes blocks if executed. Only matters for blocks w special names.
+            copy = self.BLOCK_NAMES_LIST[1:]
             random.shuffle(copy)
-            self.name_set[1:] = copy
+            self.BLOCK_NAMES_LIST[1:] = copy
 
-        # for situation with only PRACTICE and TEST
-        if num_blocks > 0:
+        block_df_list = []  # a list of dataframes per block-- each block gets one
+
+        if num_blocks > 0:  # num_blocks not only quantifies the number of blocks-- it is also our indicator for if
+                            # blocks have special names
             block_list = []
             current_block = 1
-            count = 0;  # count the number of practice pairs
-            # Assign the block number
-            for i in range(num_items):
-                if self.item_data.loc[i, "Block_Name"] == 'PRACTICE':
-                    count += 1
+            num_practice_trials = 0
+            for i in range(num_trials):  # for later assigment of block numbers to self.stimuli_df
+                if self.stimuli_df.loc[i, "Block_Name"] == 'PRACTICE':
+                    num_practice_trials += 1
                     block_list.append(0)
                     continue
                 block_list.append(current_block)
@@ -279,219 +251,86 @@ class SuperPrime:
                     current_block += 1
                 else:
                     current_block = 1
+            for i in range(len(self.stimuli_df)):  # assigns each trial to a block in self.stimuli_df for partitioning
+                self.stimuli_df.loc[i, "Block_Num"] = block_list[i]
 
-            # assign the block number to "Block" column
-            for i in range(len(self.item_data)):
-                self.item_data.loc[i, "Block"] = block_list[i]
-
-            # get the practice list
-            practice_list = self.item_data[self.item_data["Block"] == 0]
-            practice_list = practice_list.reset_index()
-
-            # assign the pairs into each block according to the "Block" value
-            self.trial_block_list = []
+            practice_df = self.stimuli_df[self.stimuli_df["Block_Num"] == 0]
+            practice_df = practice_df.reset_index(drop=True)
             for i in range(num_blocks):
-                block_dataframe = self.item_data[self.item_data["Block"] == i + 1]
-                if self.RAND_WITHIN_BLOCKS:
-                    # shuffle within the block
-                    block_dataframe = block_dataframe.sample(frac=1)
-                    practice_list = practice_list.sample(frac=1)
-                self.trial_block_list.append(block_dataframe.reset_index())
+                block_df = self.stimuli_df[self.stimuli_df["Block_Num"] == i+1]
+                if self.RAND_WITHIN_BLOCKS == "TRUE":  # randomizes trials within blocks if executed
+                    block_df = block_df.sample(frac=1).reset_index(drop=True)
+                    practice_df = practice_df.sample(frac=1).reset_index(drop=True)
+                block_df_list.append(block_df)
 
-            self.practice_list = practice_list.reset_index(drop=True)
+            return practice_df, block_df_list
 
-        # for situations with other than TEST
-        else:
-            for i in range(num_items):
-                block_name = self.item_data.loc[i, "Block_Name"]
-                self.item_data.loc[i, "Block"] = self.name_set.index(block_name)
-            practice_list = self.item_data[self.item_data["Block_Name"] == 'PRACTICE']
-            practice_list = practice_list.reset_index()
+        else:  # <=0 indicates that blocks have special names. This is important for instruction showing purposes, etc.
+            for i in range(num_trials):
+                block_name = self.stimuli_df.loc[i, "Block_Name"]
+                self.stimuli_df.loc[i, "Block_Num"] = self.BLOCK_NAMES_LIST.index(block_name)
+            practice_df = self.stimuli_df[self.stimuli_df["Block_Num"] == 0]
+            practice_df = practice_df.reset_index(drop=True)
 
-            self.trial_block_list = []
-            # assign pairs to block according to their "Block_Name" value
-            for i in range(1, len(self.name_set)):
-                block_dataframe = self.item_data[self.item_data["Block"] == i]
-                if self.RAND_WITHIN_BLOCKS:
-                    block_dataframe = block_dataframe.sample(frac=1)
-                    practice_list = practice_list.sample(frac=1)
+            for i in range(1, len(self.BLOCK_NAMES_LIST)):  # assigns each trial to a block in self.stimuli_df for partitioning
+                block_df = self.stimuli_df[self.stimuli_df["Block_Num"] == i]
+                if self.RAND_WITHIN_BLOCKS == "TRUE":
+                    block_df = block_df.sample(frac=1).reset_index(drop=True)
+                    practice_df = practice_df.sample(frac=1).reset_index(drop=True)
+                block_df_list.append(block_df)
 
-                self.trial_block_list.append(block_dataframe.reset_index())
+            return practice_df, block_df_list
 
-            self.practice_list = practice_list.reset_index(drop=True)
-
-    def prepare_output_header(self):
-        """
-        prepare the header for the output file
-        """
+    def create_log(self):
+        """ This procedure creates a log for the subject's data. """
         header_row = []
         header_row.extend(('ExpName', 'SubjectID', 'Item_List', 'Condition'))
         header_row.extend(('BlockID', 'TrialID'))
-        header_row.extend(self.item_data.columns.values.tolist()[0:-1])
+        header_row.extend(self.stimuli_df.columns.values.tolist()[0:])
+        header_row.extend(("Key_press", "RT"))
 
-        for i in range(len(self.trial_event_list)):
-            if self.trial_event_list[i][0] == 'ITI':
-                continue
-            event_time = self.trial_event_list[i][0] + '_Time'
-            header_row.append(event_time)
+        file = os.path.basename(__file__)
+        self.EXP_NAME = os.path.splitext(file)[0]
 
-        header_row.extend(('Key_response', 'RT'))
-        header_row.append('ITI_Time')
+        task_rp_list = self.ITEM_LIST.split("_")
+        task = task_rp_list[0]
+        rp = task_rp_list[1]
+        list_num = task_rp_list[2]
+        self.FILE_NAME = self.EXP_NAME + '_' + task + '_' + self.CONDITION + '_' + rp + '_' + list_num + '_' + \
+                         str(self.SUBJECT_ID)
 
         with open('Output/Data/' + self.FILE_NAME + '.csv', 'w', newline='') as csvfile:
             filewriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
             filewriter.writerow(header_row)
 
-    def experiment(self):
-        """
-        This is the experiment function
-        """
-        self.detectEEG()
-        # get the number of block
-        num_blocks = int(self.config_dict['BLOCKS'])
-        self.show_instructions('Stimuli/Instructions/main_instructions.txt')
+    def write_log(self):
+        row = []
+        row.extend((self.EXP_NAME, self.SUBJECT_ID, self.ITEM_LIST, self.CONDITION))
+        row.extend((self.current_block_num, self.current_trial_num))
+        row.extend(self.current_trial_series[0:-1])
+        row.extend((self.key_press, self.reaction_time))
 
-        # determine task of the experiment and show corresponding task instructions
-        task = self.condition_dict['items'].split('_')[0]
-        try:
-            self.show_instructions('Stimuli/Instructions/task_instructions1.txt', task)
-            self.show_instructions('Stimuli/Instructions/task_instructions2.txt', task)
-            self.show_instructions('Stimuli/Instructions/task_instructions3.txt', task)
-        except KeyError:
-            print('no corresponding instructions in file')
-            pass
+        with open('Output/Data/' + self.FILE_NAME + '.csv', 'a', newline='') as csvfile:
+            filewriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            filewriter.writerow(row)
 
-        self.prepare_output_header()
-        name_flag = False
-        # When there are PRACTICE pairs
-        if len(self.practice_list) > 0:
-            self.show_instructions('Stimuli/Instructions/practice_instructions.txt')
-            self.block(self.practice_list, 0)
-            self.show_instructions('Stimuli/Instructions/start_test.txt')
-        # When there are other "Block_Name" than TEST, get the number of block according to
-        # the NAME_SET
-        if num_blocks < 0:
-            num_blocks = len(self.config_dict['NAME_SET'].split(' ')) - 1
-            name_flag = True
-        for i in range(1, num_blocks + 1):
-            self.block_num = i
-            if name_flag:
-                block_name = self.name_set[i]
-            else:
-                block_name = 'TEST'
-            self.show_instructions('Stimuli/Instructions/block_instructions.txt', block_name)
-            self.block(self.trial_block_list[i - 1], i)
-            if i < num_blocks:
-                self.show_instructions('Stimuli/Instructions/block_break.txt')
+    def time_to_frames(self, num_milliseconds):
+        """ Approximates number of frames from time in milliseconds. """
+        num_milliseconds = float(num_milliseconds)
+        ms_per_frame = 1000.0/self.screen_refresh_rate
+        num_frames_to_wait = num_milliseconds/ms_per_frame
 
-    def block(self, item_data_frame, block_num):
-        """
-        This function executes each trial with all events in order.
-        """
-        num_trials = len(item_data_frame)
-        num_events = len(self.trial_event_list)
-        key = self.config_dict['KEY']
-        interval = 0
+        return num_frames_to_wait
 
-        for i in range(num_trials):
-            interval = 0
-            self.trial_num = i+1
-            row = []
-            row.extend((self.EXPNAME, self.SUBJECTID, self.ITEM_LIST, self.CONDITION))
-            row.extend((block_num, i + 1))
-            row.extend(item_data_frame.iloc[i, 1:-1])
-
-            for j in range(num_events):
-                self.event_num = j
-                valid_key_list = ['escape']
-                # esc key is default escape from program
-                event_name = self.trial_event_list[j][0]
-                type = 'N'
-                # if this step need a key press
-                if self.trial_event_list[j][1] == "KEY":
-                    type = 'W'
-                    duration = 0
-                    valid_key_list.extend(key.split())
-                else:
-                    type = self.trial_event_list[j][1][0]
-                    if type == 'W':
-                        # type 'W' means wait after sound or video fully displayed
-                        duration = float(int(self.trial_event_list[j][1][1:]) / 1000)
-                    else:
-                        duration = float(int(self.trial_event_list[j][1]) / 1000)
-                # break between pairs
-                if event_name == 'ITI':
-                    timer = core.Clock()
-                    timer.reset()
-                    self.win.flip()
-                    core.wait(duration)
-                    timeUse = timer.getTime()
-                    row.append(round(timeUse * 1000, 4))
-                else:
-                    # need display the pairs
-                    event_text = item_data_frame.loc[i, event_name]
-                    if valid_key_list != ['escape']:
-                        res = self.display_event_words(event_text, duration, valid_key_list, type)
-                        corr_response = item_data_frame.loc[i, 'Corr_response'].astype('str')
-                        # if feedback is need, display the sound and text
-                        if self.FEEDBACK == True:
-                            if res[1] != corr_response:
-                                audio = sound.Sound('Stimuli/Audio/' + item_data_frame.loc[i, 'Feedback'])
-                                audio.play()
-                                words = visual.TextStim(self.win, text='Wrong',
-                                                        height=self.EVENT_TEXT_HEIGHT,
-                                                        pos=(0.0, 0.0),
-                                                        color='Red',
-                                                        bold=False,
-                                                        italic=False)
-                                words.draw()
-                                self.win.flip()
-                                core.wait(2)
-                                audio.stop()
-                        row.extend(res)
-                    else:
-                        timer = core.Clock()
-                        timer.reset()
-                        res = self.display_event_words(event_text, duration, None, type)
-
-                        row.append(res)
-            with open('Output/Data/' + self.FILE_NAME + '.csv', 'a', newline='') as csvfile:
-                filewriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-                filewriter.writerow(row)
-
-    def prepare(self):
-        """
-        This function prepare the global variables from information in config.csv and conditions.csv
-        """
-        file = os.path.basename(__file__)
-        # get the expriment name
-        self.EXPNAME = os.path.splitext(file)[0]
-        self.TIME_OUT = float(self.config_dict['TIMEOUT']) / 1000
-        items = self.condition_dict['items'].split(' ')
-        # get the item list in random
-        self.ITEM_LIST = str(items[random.randint(0, len(items) - 1)])
-        conditions = self.condition_dict['trial_events'].split(' ')
-        # get the condition in random
-        self.CONDITION = str(conditions[random.randint(0, len(conditions) - 1)])
-        self.SUBJECTID = self.condition_dict['subj_id']
-        # generate the file name for output
-        task_rp_list = self.ITEM_LIST.split('_')
-        task = task_rp_list[0]
-        rp = task_rp_list[1]
-        lst = task_rp_list[2]
-        self.FILE_NAME = self.EXPNAME + '_' + task + '_' + self.CONDITION + '_' + rp + '_' + lst + '_' + \
-                         str(self.SUBJECTID)
-        self.RAND_BLOCKS = self.config_dict['RAND_BLOCKS']
-        self.RAND_WITHIN_BLOCKS = self.config_dict['RAND_WITHIN_BLOCKS']
-        self.EEG = self.config_dict['EEG']
-
-    def detectEEG(self):
+    def detect_eeg(self):
         if self.EEG == "TRUE":
             self.port = parallel.ParallelPort(address=0x0378)
+        pass
 
-    def sendEEGTrig(self, trigger):
-        if not trigger or not (self.EEG == "TRUE"):
+    def send_eeg_trigger(self, trigger):
+        if self.EEG != "TRUE":
             return
-        self.port.setData(trigger)
-        core.wait(0.0005)
-        self.port.setData(0)
+        else:
+            self.port.setData(trigger)
+            core.wait(0.0005)
+            self.port.setData(0)
