@@ -144,7 +144,7 @@ class SuperPrime:
                         self.send_eeg_trigger(eeg_trigger)
                     else:
                         self.window.flip()
-            else:
+            else:  # displays text, and then waits for keypress.
                 self.stimulus_text.text = text
                 self.window.flip()
                 self.send_eeg_trigger(eeg_trigger)
