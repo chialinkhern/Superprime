@@ -50,6 +50,8 @@ class GUI:
         self.saved_changes.set(0)
         self.eeg = tk.StringVar()
         self.eeg.set(self.config_dict["EEG"])
+        self.refresh_rate = tk.StringVar()
+        self.refresh_rate.set(self.config_dict["REFRESH_RATE"])
 
         frame_image = tk.Frame(self.root)
         frame_image.grid(row=0, columnspan=2, pady=(0, 25))
@@ -69,12 +71,14 @@ class GUI:
         label_RAND_WITHIN_BLOCK = tk.Label(frame_topleft, text='RAND_WITHIN_BLOCK')
         label_RAND_BLOCKS = tk.Label(frame_topleft, text='RAND_BLOCKS')
         label_EEG = tk.Label(frame_topleft, text='EEG')
+        label_REFRESH_RATE = tk.Label(frame_topleft, text="REFRESH_RATE")
         entry_KEY = tk.Entry(frame_topleft, textvariable=self.key)
         entry_TIMEOUT = tk.Entry(frame_topleft, textvariable=self.timeout)
         option_menu_TASK = tk.OptionMenu(frame_topleft, self.task, *task_options)
         option_menu_RAND_WITHIN_BLOCKS = tk.OptionMenu(frame_topleft, self.rand_within_blocks, "TRUE", "FALSE")
         option_menu_RAND_BLOCKS = tk.OptionMenu(frame_topleft, self.rand_blocks, "TRUE", "FALSE")
         option_menu_EEG = tk.OptionMenu(frame_topleft, self.eeg, "TRUE", "FALSE")
+        entry_REFRESH_RATE = tk.Entry(frame_topleft, textvariable=self.refresh_rate)
         label_configcsv.grid(row=0, column=0, columnspan=2, pady=(5, 10))
         label_KEY.grid(row=1, sticky='e')
         label_TIMEOUT.grid(row=2, sticky='e')
@@ -82,12 +86,14 @@ class GUI:
         label_RAND_WITHIN_BLOCK.grid(row=4, sticky='e')
         label_RAND_BLOCKS.grid(row=5, sticky='e')
         label_EEG.grid(row=6, sticky='e')
+        label_REFRESH_RATE.grid(row=7, sticky='e')
         entry_KEY.grid(row=1, column=1, sticky='we')
         entry_TIMEOUT.grid(row=2, column=1, sticky='we')
         option_menu_TASK.grid(row=3, column=1, sticky='we')
         option_menu_RAND_WITHIN_BLOCKS.grid(row=4, column=1, sticky='we')
         option_menu_RAND_BLOCKS.grid(row=5, column=1, sticky='we')
         option_menu_EEG.grid(row=6, column=1, sticky='we')
+        entry_REFRESH_RATE.grid(row=7, column=1, sticky="we")
 
         frame_topright = tk.Frame(self.root)
         frame_topright.grid(row=1, column=1, sticky='nesw', padx=(30, 0))
@@ -183,7 +189,7 @@ class GUI:
 
             self.condition_dict['subj_id'] = self.subjectid
 
-            self.config_dict['NAME_SET'] = ' '.join(
+            self.config_dict['BLOCK_NAMES'] = ' '.join(
                 self.return_block_names('Stimuli/Item_Lists/' + self.item_list.get() + '.csv'))
 
             with open('config.csv', 'w') as f:

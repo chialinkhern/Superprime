@@ -36,10 +36,10 @@ class SuperPrime:
         self.BLOCK_NAMES_LIST = self.exp_config_dict["BLOCK_NAMES"].split()
         # self.TASK is not needed- this variable is only relevant to the GUI
         self.EEG = self.exp_config_dict["EEG"]
+        self.screen_refresh_rate = float(self.exp_config_dict["REFRESH_RATE"])
 
         self.stimuli_df = self.load_df("Stimuli/Item_Lists/" + self.ITEM_LIST + ".csv")
         self.trial_config_list = self.load_list('Events/' + self.CONDITION + '.csv')
-        self.screen_refresh_rate = 144.0
 
         # these attributes keep tabs on the status of the experiment
         self.current_block_num = None
@@ -134,6 +134,8 @@ class SuperPrime:
         eeg_trigger = str(self.current_block_num) + str(self.current_trial_num) + str(self.current_event_num)
         if text is None:  # waits for the allotted number of frames, but does not display anything.
             for frameN in range(num_frames):
+                if frameN == 0:
+                    self.stimulus_text.text = " "
                 self.window.flip()
         else:  # displays text for the allotted number of frames.
             if key_press is False:
@@ -151,14 +153,11 @@ class SuperPrime:
                 self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)[0]
                 self.reaction_time = round(timer.getTime() * 1000, 4)
 
-                self.stimulus_text.text = " "
-                self.window.flip()
-
     def display_trial(self, trial_series):
         """ Each trial is made up of a sequence of events. This procedure groups events.
         For now, this procedure displays text only. """
         for i, event_time_pair in enumerate(self.trial_config_list):
-            self.current_event_num = i+1  # i+1 so that current_event_nums start at 1
+            self.current_event_num = i+1  # i+1 so that current_event_num starts at 1
 
             event_name = event_time_pair[0]
             wait = event_time_pair[1]
@@ -177,7 +176,7 @@ class SuperPrime:
         """ This procedure groups trials together to present them as blocks. """
         num_trials = len(block_dataframe)
         for i in range(num_trials):
-            self.current_trial_num = i+1  # i+1 so that trial_nums start at 1
+            self.current_trial_num = i+1  # i+1 so that current_trial_num starts at 1
 
             self.current_trial_series = block_dataframe.iloc[i]
             self.display_trial(self.current_trial_series)
@@ -190,7 +189,7 @@ class SuperPrime:
         # this chunk converts ms to num frames
         for i, event_time_pair in enumerate(self.trial_config_list):
             try:
-                event_time_pair[1] = int(self.time_to_frames(event_time_pair[1]))
+                event_time_pair[1] = round(self.time_to_frames(event_time_pair[1]))  # round() returns an int
             except ValueError:
                 pass
 
