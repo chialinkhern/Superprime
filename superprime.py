@@ -31,10 +31,10 @@ class SuperPrime:
         self.exp_config_dict = self.load_dict("config.csv")
         self.RAND_BLOCKS = self.exp_config_dict["RAND_BLOCKS"]
         self.RAND_WITHIN_BLOCKS = self.exp_config_dict["RAND_WITHIN_BLOCKS"]
-        self.TIME_OUT = float(self.exp_config_dict["TIMEOUT"])/1000
+        self.TIME_OUT = float(self.exp_config_dict["TIMEOUT"])/1000  # is in seconds because event.waitKeys() looks for seconds
         self.KEY_LIST = self.exp_config_dict["KEY"].split(" ")
         self.BLOCK_NAMES_LIST = self.exp_config_dict["BLOCK_NAMES"].split()
-        # self.TASK is not needed- this variable is only relevant to the GUI
+        self.TASK = self.exp_config_dict["TASK"]
         self.EEG = self.exp_config_dict["EEG"]
         self.screen_refresh_rate = float(self.exp_config_dict["REFRESH_RATE"])
 
@@ -45,6 +45,8 @@ class SuperPrime:
         self.current_block_num = None
         self.current_trial_num = None
         self.current_event_num = None
+        self.related = None
+        self.item_num = None
         self.key_press = None
         self.reaction_time = None
         self.current_trial_series = None
@@ -77,7 +79,9 @@ class SuperPrime:
         core.quit()
 
     def load_dict(self, config_file):
-        """ Reads csv files (two columns only!) and returns them as dictionaries. """
+        """
+        Reads csv files (two columns only!) and returns them as dictionaries.
+        """
         output = {}
         f = open(config_file)
         for line in f:
@@ -90,13 +94,17 @@ class SuperPrime:
         return output
 
     def load_df(self, file_path):
-        """ Reads csv files and returns them as pandas dataframes. """
+        """
+        Reads csv files and returns them as pandas dataframes.
+        """
         df = pd.read_csv(file_path, header=0, skip_blank_lines=True)
-        df = df.drop(df.columns[0], axis=1)
+        # df = df.drop(df.columns[0], axis=1)
         return df
 
     def load_list(self, file_path):
-        """ Reads csv files and returns them as lists. """
+        """
+        Reads csv files and returns them as lists.
+        """
         output = []
         f = open(file_path)
         for line in f:
@@ -105,7 +113,9 @@ class SuperPrime:
         return output
 
     def display_instructions(self, filepath, name=None):
-        """ Displays instructions line by line, and waits for space bar to continue. """
+        """
+        Displays instructions line by line, and waits for space bar to continue.
+        """
         if name is None:  # generic instructions that are applicable to any condition
             with open(filepath) as f:
                 instruction_list = f.readlines()
@@ -127,11 +137,15 @@ class SuperPrime:
             self.window.flip()
             event.waitKeys(keyList=["space"])
 
-    def display_text(self, num_frames=None, text=None, key_press=False):
-        """ This procedure displays text for the allotted number of frames. """
-        timer = core.Clock()
+    def display_text(self, num_frames=None, text=None, key_press=False, eeg_trigger=None):
+        """
+        This procedure displays text for the allotted number of frames.
+        """
+        timer = core.Clock()  # to record latencies
         timer.reset()
-        eeg_trigger = str(self.current_block_num) + str(self.current_trial_num) + str(self.current_event_num)
+
+        # EEG triggers sent here are in accordance to conventions Kara and I have agreed upon (refer to description of
+        # self.send_eeg_trigger())
         if text is None:  # waits for the allotted number of frames, but does not display anything.
             for frameN in range(num_frames):
                 if frameN == 0:
@@ -146,34 +160,83 @@ class SuperPrime:
                         self.send_eeg_trigger(eeg_trigger)
                     else:
                         self.window.flip()
-            else:  # displays text, and then waits for keypress.
+            else:  # displays text, and then waits for keypress. If self.EEG is true, display text for only 200ms,
+                # but also wait for keypress
                 self.stimulus_text.text = text
-                self.window.flip()
-                self.send_eeg_trigger(eeg_trigger)
-                self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)[0]
-                self.reaction_time = round(timer.getTime() * 1000, 4)
+                if self.EEG == "TRUE":
+                    record_keypress = True
+                    num_frames = self.time_to_frames(200)
+                    key_press = event.getKeys(keyList=self.KEY_LIST, timeStamped=False)
+                    for frameN in range(num_frames):
+                        self.window.flip()
+                        if frameN == 0:
+                            self.send_eeg_trigger(eeg_trigger)
+                        if record_keypress:
+                            if key_press in self.KEY_LIST:
+                                self.key_press = key_press
+                                self.reaction_time = round(timer.getTime() * 1000, 4)
+                                record_keypress = False
+                    self.stimulus_text.text = " "
+                    for frameN in range(self.time_to_frames(self.TIME_OUT * 1000 - 200)):  # self.TIME_OUT is in
+                        # seconds, so converting to ms; also subtracting 200 because TIME_OUT counter starts on
+                        # presentation of target
+                        self.window.flip()
+                        if record_keypress:
+                            if key_press in self.KEY_LIST:
+                                self.key_press = key_press
+                                self.reaction_time = round(timer.getTime() * 1000, 4)
+                                record_keypress = False
+                    if record_keypress:
+                        self.key_press = "None"
+                        self.reaction_time = round(timer.getTime() * 1000, 4)
+                else:
+                    self.window.flip()
+                    self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)
+                    if self.key_press is None:
+                        self.key_press = "None"
+                        self.reaction_time = round(timer.getTime() * 1000, 4)
+                    else:
+                        self.key_press = self.key_press[0]
+                        self.reaction_time = round(timer.getTime() * 1000, 4)
 
     def display_trial(self, trial_series):
-        """ Each trial is made up of a sequence of events. This procedure groups events.
-        For now, this procedure displays text only. """
+        """
+        Each trial is made up of a sequence of events. This procedure groups events.
+        For now, this procedure displays text only.
+        """
         for i, event_time_pair in enumerate(self.trial_config_list):
             self.current_event_num = i+1  # i+1 so that current_event_num starts at 1
+            self.related = trial_series[6]
+            self.item_num = trial_series[0]
 
             event_name = event_time_pair[0]
             wait = event_time_pair[1]
-            event_content = trial_series[i]
+            event_content = trial_series[i+1]  # i+1 because you don't want to start with the item_num
+            eeg_trigger = ""
 
-            if wait == "KEY":
-                self.display_text(text=event_content, key_press=True)
+            if event_name == "Fixation":
+                self.display_text(num_frames=wait, text=event_content)
+            elif event_name == "Prime":
+                if self.TASK == "CONCRETENESS DECISION":
+                    eeg_trigger = 0
+                elif self.TASK == "CATEGORY DECISION":
+                    eeg_trigger = 1
+                self.display_text(num_frames=wait, text=event_content, eeg_trigger=eeg_trigger)
+            elif event_name == "Mask":
+                eeg_trigger = self.item_num
+                self.display_text(num_frames=wait, text=event_content, eeg_trigger=eeg_trigger)
+            if event_name == "Target":
+                eeg_trigger = self.related
+                self.display_text(text=event_content, key_press=True, eeg_trigger=eeg_trigger)
             elif event_name == "ITI":
                 self.display_text(num_frames=wait)
-            else:
-                self.display_text(num_frames=wait, text=event_content)
 
         self.write_log()
 
     def display_block(self, block_dataframe):
-        """ This procedure groups trials together to present them as blocks. """
+        """
+        This procedure groups trials together to present them as blocks.
+        """
         num_trials = len(block_dataframe)
         for i in range(num_trials):
             self.current_trial_num = i+1  # i+1 so that current_trial_num starts at 1
@@ -182,14 +245,16 @@ class SuperPrime:
             self.display_trial(self.current_trial_series)
 
     def experiment(self):
-        """ This procedure puts together the pieces of the experiment into one whole. """
+        """
+        This procedure puts together the pieces of the experiment into one whole.
+        """
         practice_df, block_df_list = self.partition_stimuli()
         task = self.condition_dict["items"].split("_")[0]
 
         # this chunk converts ms to num frames
         for i, event_time_pair in enumerate(self.trial_config_list):
             try:
-                event_time_pair[1] = round(self.time_to_frames(event_time_pair[1]))  # round() returns an int
+                event_time_pair[1] = self.time_to_frames(event_time_pair[1])
             except ValueError:
                 pass
 
@@ -223,8 +288,10 @@ class SuperPrime:
         self.display_instructions("Stimuli/Instructions/end.txt")
 
     def partition_stimuli(self):
-        """ This method takes self.stimuli_df and partitions it, returning Practice and Test blocks. Test blocks will be
-        appropriately named if relevant. If not, they will just be called TEST. """
+        """
+        This method takes self.stimuli_df and partitions it, returning Practice and Test blocks. Test blocks will be
+        appropriately named if relevant. If not, they will just be called TEST.
+        """
         num_blocks = int(self.exp_config_dict["BLOCKS"])
         num_trials = int(len(self.stimuli_df))
 
@@ -314,22 +381,31 @@ class SuperPrime:
             filewriter.writerow(row)
 
     def time_to_frames(self, num_milliseconds):
-        """ Approximates number of frames from time in milliseconds. """
+        """
+        Approximates number of frames from time in milliseconds.
+        """
         num_milliseconds = float(num_milliseconds)
         ms_per_frame = 1000.0/self.screen_refresh_rate
-        num_frames_to_wait = num_milliseconds/ms_per_frame
+        num_frames_to_wait = round(num_milliseconds/ms_per_frame)  # round() returns an int that is closest
 
         return num_frames_to_wait
 
     def detect_eeg(self):
         if self.EEG == "TRUE":
             self.port = parallel.ParallelPort(address=0x0378)
-        pass
 
     def send_eeg_trigger(self, trigger):
+        """
+        Sends meaningful codes to the EEG-Computer for data analysis. Kara and I have agreed on the following.
+        Prime:          Concreteness Decision (0) | Category Decision (1)
+        (empty) Mask:   Item-code for target (1~128)
+        Target:         Unrelated (0) | Related (1)
+        """
         if self.EEG != "TRUE":
             return
         else:
+            if trigger is None:
+                return
             self.port.setData(trigger)
             core.wait(0.0005)
             self.port.setData(0)
