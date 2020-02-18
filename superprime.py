@@ -16,7 +16,7 @@ class SuperPrime:
         # this chunk sets values for visual.textStim()
         self.EVENT_TEXT_HEIGHT = 0.1
         self.EVENT_TEXT_FONT = "Arial"
-        self.EVENT_TEXT_COLOR = "pink"
+        self.EVENT_TEXT_COLOR = "white"
         self.INSTRUCTION_TEXT_HEIGHT = 0.06
         self.INSTRUCTION_FONT = "Arial"
         self.INSTRUCTION_TEXT_COLOR = "white"
@@ -392,7 +392,7 @@ class SuperPrime:
 
     def detect_eeg(self):
         if self.EEG == "TRUE":
-            self.port = parallel.ParallelPort(address=0x0378)
+            self.port = parallel.ParallelPort(address=0x3ff8)
 
     def send_eeg_trigger(self, trigger):
         """
