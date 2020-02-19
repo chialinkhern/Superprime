@@ -164,16 +164,21 @@ class SuperPrime:
                 # but also wait for keypress
                 self.stimulus_text.text = text
                 if self.EEG == "TRUE":
+                    event.clearEvents("keyboard")
                     record_keypress = True
                     num_frames = self.time_to_frames(200)
-                    key_press = event.getKeys(keyList=self.KEY_LIST, timeStamped=False)
                     for frameN in range(num_frames):
                         self.window.flip()
                         if frameN == 0:
                             self.send_eeg_trigger(eeg_trigger)
                         if record_keypress:
-                            if key_press in self.KEY_LIST:
-                                self.key_press = key_press
+                            key_press = event.getKeys(keyList=self.KEY_LIST, timeStamped=False)
+                            if ("1" or "num_1" or "num_end") in key_press:
+                                self.key_press = 1
+                                self.reaction_time = round(timer.getTime() * 1000, 4)
+                                record_keypress = False
+                            elif ("2" or "num_2" or "num_down") in key_press:
+                                self.key_press = 2
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
                     self.stimulus_text.text = " "
@@ -182,8 +187,13 @@ class SuperPrime:
                         # presentation of target
                         self.window.flip()
                         if record_keypress:
-                            if key_press in self.KEY_LIST:
-                                self.key_press = key_press
+                            key_press = event.getKeys(keyList=self.KEY_LIST, timeStamped=False)
+                            if ("1" in key_press) or ("num_end" in key_press) or ("num_1" in key_press):
+                                self.key_press = 1
+                                self.reaction_time = round(timer.getTime() * 1000, 4)
+                                record_keypress = False
+                            elif ("2" in key_press) or ("num_down" in key_press) or ("num_2" in key_press):
+                                self.key_press = 2
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
                     if record_keypress:
@@ -197,6 +207,10 @@ class SuperPrime:
                         self.reaction_time = round(timer.getTime() * 1000, 4)
                     else:
                         self.key_press = self.key_press[0]
+                        if self.key_press == "num_1" or "num_end":
+                            self.key_press = 1
+                        elif self.key_press == "num_2" or "num_down":
+                            self.key_press = 2
                         self.reaction_time = round(timer.getTime() * 1000, 4)
 
     def display_trial(self, trial_series):
@@ -295,15 +309,13 @@ class SuperPrime:
         num_blocks = int(self.exp_config_dict["BLOCKS"])
         num_trials = int(len(self.stimuli_df))
 
-        if self.RAND_BLOCKS == "TRUE":  # randomizes blocks if executed. Only matters for blocks w special names.
-            copy = self.BLOCK_NAMES_LIST[1:]
-            random.shuffle(copy)
-            self.BLOCK_NAMES_LIST[1:] = copy
-
         block_df_list = []  # a list of dataframes per block-- each block gets one
 
         if num_blocks > 0:  # num_blocks not only quantifies the number of blocks-- it is also our indicator for if
                             # blocks have special names
+            for i in range(num_blocks-1):
+                self.BLOCK_NAMES_LIST.append(self.BLOCK_NAMES_LIST[-1])  # gives each block a name to refer to for
+                # instruction-showing purposes in the self.experiment() function
             block_list = []
             current_block = 1
             num_practice_trials = 0
@@ -317,6 +329,10 @@ class SuperPrime:
                     current_block += 1
                 else:
                     current_block = 1
+            if self.RAND_BLOCKS == "TRUE":
+                copy = block_list[num_practice_trials:]
+                random.shuffle(copy)
+                block_list[num_practice_trials:] = copy
             for i in range(len(self.stimuli_df)):  # assigns each trial to a block in self.stimuli_df for partitioning
                 self.stimuli_df.loc[i, "Block_Num"] = block_list[i]
 
