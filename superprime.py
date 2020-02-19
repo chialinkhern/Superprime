@@ -153,13 +153,26 @@ class SuperPrime:
                 self.window.flip()
         else:  # displays text for the allotted number of frames.
             if key_press is False:
-                for frameN in range(num_frames):
-                    if frameN == 0:
-                        self.stimulus_text.text = text
-                        self.window.flip()
-                        self.send_eeg_trigger(eeg_trigger)
-                    else:
-                        self.window.flip()
+                if self.EEG == "TRUE":
+                    frames_to_display = self.time_to_frames(200)
+                    for frameN in range(num_frames):
+                        if frameN == 0:
+                            self.stimulus_text.text = text
+                            self.window.flip()
+                            self.send_eeg_trigger(eeg_trigger)
+                        if frameN <= frames_to_display:
+                            self.window.flip()
+                        else:
+                            self.stimulus_text.text = " "
+                            self.window.flip()
+                else:
+                    for frameN in range(num_frames):
+                        if frameN == 0:
+                            self.stimulus_text.text = text
+                            self.window.flip()
+                            self.send_eeg_trigger(eeg_trigger)
+                        else:
+                            self.window.flip()
             else:  # displays text, and then waits for keypress. If self.EEG is true, display text for only 200ms,
                 # but also wait for keypress
                 self.stimulus_text.text = text
@@ -407,6 +420,7 @@ class SuperPrime:
         return num_frames_to_wait
 
     def detect_eeg(self):
+        return
         if self.EEG == "TRUE":
             self.port = parallel.ParallelPort(address=0x3ff8)
 
@@ -420,6 +434,7 @@ class SuperPrime:
         if self.EEG != "TRUE":
             return
         else:
+            return
             if trigger is None:
                 return
             self.port.setData(trigger)
