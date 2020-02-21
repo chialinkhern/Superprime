@@ -75,42 +75,42 @@ class SuperPrime:
         self.create_log()
         self.experiment()
 
-    def quit(self):  # quits the experiment
-        core.quit()
+    def create_log(self):
+        """ This procedure creates a log for the subject's data. """
+        header_row = []
+        header_row.extend(('ExpName', 'SubjectID', 'Item_List', 'Condition'))
+        header_row.extend(('BlockID', 'TrialID'))
+        header_row.extend(self.stimuli_df.columns.values.tolist()[0:])
+        header_row.extend(("Key_press", "RT"))
 
-    def load_dict(self, config_file):
-        """
-        Reads csv files (two columns only!) and returns them as dictionaries.
-        """
-        output = {}
-        f = open(config_file)
-        for line in f:
-            line = (line.strip("\n")).split(",")
-            try:
-                output[line[0]] = line[1]
-            except:
-                print('ERROR in' + config_file + 'in Row {}'.format(line))
-                sys.exit(2)
-        return output
+        file = os.path.basename(__file__)
+        self.EXP_NAME = os.path.splitext(file)[0]
 
-    def load_df(self, file_path):
-        """
-        Reads csv files and returns them as pandas dataframes.
-        """
-        df = pd.read_csv(file_path, header=0, skip_blank_lines=True)
-        # df = df.drop(df.columns[0], axis=1)
-        return df
+        task_rp_list = self.ITEM_LIST.split("_")
+        task = task_rp_list[0]
+        rp = task_rp_list[1]
+        list_num = task_rp_list[2]
+        self.FILE_NAME = self.EXP_NAME + '_' + task + '_' + self.CONDITION + '_' + rp + '_' + list_num + '_' + \
+                         str(self.SUBJECT_ID)
 
-    def load_list(self, file_path):
+        with open('Output/Data/' + self.FILE_NAME + '.csv', 'w', newline='') as csvfile:
+            filewriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            filewriter.writerow(header_row)
+
+    def detect_eeg(self):
+        if self.EEG == "TRUE":
+            self.port = parallel.ParallelPort(address=0x3ff8)
+
+    def display_block(self, block_dataframe):
         """
-        Reads csv files and returns them as lists.
+        This procedure groups trials together to present them as blocks.
         """
-        output = []
-        f = open(file_path)
-        for line in f:
-            line = (line.strip("\n")).split(",")
-            output.append(line)
-        return output
+        num_trials = len(block_dataframe)
+        for i in range(num_trials):
+            self.current_trial_num = i+1  # i+1 so that current_trial_num starts at 1
+
+            self.current_trial_series = block_dataframe.iloc[i]
+            self.display_trial(self.current_trial_series)
 
     def display_instructions(self, filepath, name=None):
         """
@@ -269,17 +269,6 @@ class SuperPrime:
 
         self.write_log()
 
-    def display_block(self, block_dataframe):
-        """
-        This procedure groups trials together to present them as blocks.
-        """
-        num_trials = len(block_dataframe)
-        for i in range(num_trials):
-            self.current_trial_num = i+1  # i+1 so that current_trial_num starts at 1
-
-            self.current_trial_series = block_dataframe.iloc[i]
-            self.display_trial(self.current_trial_series)
-
     def experiment(self):
         """
         This procedure puts together the pieces of the experiment into one whole.
@@ -295,10 +284,10 @@ class SuperPrime:
                 pass
 
         # this chunk shows introductory instructions
-        self.display_instructions("Stimuli/Instructions/main_instructionsEEG.txt")
+        self.display_instructions("Stimuli/Instructions/main_instructions.txt")
         try:
-            self.display_instructions("Stimuli/Instructions/task_instructions1EEG.txt", task)
-            self.display_instructions("Stimuli/Instructions/task_instructions2EEG.txt", task)
+            self.display_instructions("Stimuli/Instructions/task_instructions1.txt", task)
+            self.display_instructions("Stimuli/Instructions/task_instructions2.txt", task)
             self.display_instructions("Stimuli/Instructions/task_instructions3.txt", task)
         except KeyError:
             print("No corresponding instructions found.")
@@ -309,19 +298,60 @@ class SuperPrime:
             self.current_block_num = 0
             self.display_instructions("Stimuli/Instructions/practice_instructions.txt")
             self.display_block(practice_df)
-            self.display_instructions("Stimuli/Instructions/start_testEEG.txt")
+            self.display_instructions("Stimuli/Instructions/start_test.txt")
 
         # this chunk starts the test blocks
         num_blocks = len(block_df_list)
         for block_num in range(1, num_blocks):  # block_num 0 is PRACTICE
-            self.current_block_num = block_num
-            block_name = self.BLOCK_NAMES_LIST[1:][block_num]
-            self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
-            self.display_block(block_df_list[block_num])
-            self.display_instructions("Stimuli/Instructions/block_break.txt")
+            if block_num == num_blocks:
+                self.current_block_num = block_num
+                block_name = self.BLOCK_NAMES_LIST[1:][block_num]
+                self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
+                self.display_block(block_df_list[block_num])
+                # no block instructions here
+            else:
+                self.current_block_num = block_num
+                block_name = self.BLOCK_NAMES_LIST[1:][block_num]
+                self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
+                self.display_block(block_df_list[block_num])
+                self.display_instructions("Stimuli/Instructions/block_break.txt")
 
         # participant is done!
         self.display_instructions("Stimuli/Instructions/end.txt")
+
+    def load_df(self, file_path):
+        """
+        Reads csv files and returns them as pandas dataframes.
+        """
+        df = pd.read_csv(file_path, header=0, skip_blank_lines=True)
+        # df = df.drop(df.columns[0], axis=1)
+        return df
+
+    def load_dict(self, config_file):
+        """
+        Reads csv files (two columns only!) and returns them as dictionaries.
+        """
+        output = {}
+        f = open(config_file)
+        for line in f:
+            line = (line.strip("\n")).split(",")
+            try:
+                output[line[0]] = line[1]
+            except:
+                print('ERROR in' + config_file + 'in Row {}'.format(line))
+                sys.exit(2)
+        return output
+
+    def load_list(self, file_path):
+        """
+        Reads csv files and returns them as lists.
+        """
+        output = []
+        f = open(file_path)
+        for line in f:
+            line = (line.strip("\n")).split(",")
+            output.append(line)
+        return output
 
     def partition_stimuli(self):
         """
@@ -385,52 +415,8 @@ class SuperPrime:
 
             return practice_df, block_df_list
 
-    def create_log(self):
-        """ This procedure creates a log for the subject's data. """
-        header_row = []
-        header_row.extend(('ExpName', 'SubjectID', 'Item_List', 'Condition'))
-        header_row.extend(('BlockID', 'TrialID'))
-        header_row.extend(self.stimuli_df.columns.values.tolist()[0:])
-        header_row.extend(("Key_press", "RT"))
-
-        file = os.path.basename(__file__)
-        self.EXP_NAME = os.path.splitext(file)[0]
-
-        task_rp_list = self.ITEM_LIST.split("_")
-        task = task_rp_list[0]
-        rp = task_rp_list[1]
-        list_num = task_rp_list[2]
-        self.FILE_NAME = self.EXP_NAME + '_' + task + '_' + self.CONDITION + '_' + rp + '_' + list_num + '_' + \
-                         str(self.SUBJECT_ID)
-
-        with open('Output/Data/' + self.FILE_NAME + '.csv', 'w', newline='') as csvfile:
-            filewriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            filewriter.writerow(header_row)
-
-    def write_log(self):
-        row = []
-        row.extend((self.EXP_NAME, self.SUBJECT_ID, self.ITEM_LIST, self.CONDITION))
-        row.extend((self.current_block_num, self.current_trial_num))
-        row.extend(self.current_trial_series[0:-1])
-        row.extend((self.key_press, self.reaction_time))
-
-        with open('Output/Data/' + self.FILE_NAME + '.csv', 'a', newline='') as csvfile:
-            filewriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            filewriter.writerow(row)
-
-    def time_to_frames(self, num_milliseconds):
-        """
-        Approximates number of frames from time in milliseconds.
-        """
-        num_milliseconds = float(num_milliseconds)
-        ms_per_frame = 1000.0/self.screen_refresh_rate
-        num_frames_to_wait = round(num_milliseconds/ms_per_frame)  # round() returns an int that is closest
-
-        return num_frames_to_wait
-
-    def detect_eeg(self):
-        if self.EEG == "TRUE":
-            self.port = parallel.ParallelPort(address=0x3ff8)
+    def quit(self):  # quits the experiment
+        core.quit()
 
     def send_eeg_trigger(self, trigger):
         """
@@ -447,3 +433,24 @@ class SuperPrime:
             self.port.setData(trigger)
             core.wait(0.0005)
             self.port.setData(0)
+
+    def time_to_frames(self, num_milliseconds):
+        """
+        Approximates number of frames from time in milliseconds.
+        """
+        num_milliseconds = float(num_milliseconds)
+        ms_per_frame = 1000.0/self.screen_refresh_rate
+        num_frames_to_wait = round(num_milliseconds/ms_per_frame)  # round() returns an int that is closest
+
+        return num_frames_to_wait
+
+    def write_log(self):
+        row = []
+        row.extend((self.EXP_NAME, self.SUBJECT_ID, self.ITEM_LIST, self.CONDITION))
+        row.extend((self.current_block_num, self.current_trial_num))
+        row.extend(self.current_trial_series[0:-1])
+        row.extend((self.key_press, self.reaction_time))
+
+        with open('Output/Data/' + self.FILE_NAME + '.csv', 'a', newline='') as csvfile:
+            filewriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            filewriter.writerow(row)
