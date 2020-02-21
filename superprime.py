@@ -186,12 +186,16 @@ class SuperPrime:
                             self.send_eeg_trigger(eeg_trigger)
                         if record_keypress:
                             key_press = event.getKeys(keyList=self.KEY_LIST, timeStamped=False)
-                            if ("1" or "num_1" or "num_end") in key_press:
+                            if ("1" in key_press) or ("num_1" in key_press) or ("num_end" in key_press) \
+                                    or ("end" in key_press) in key_press:
                                 self.key_press = 1
+                                self.send_eeg_trigger(int(self.key_press))
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
-                            elif ("2" or "num_2" or "num_down") in key_press:
+                            elif ("2" in key_press) or ("num_down" in key_press) or ("num_2" in key_press) \
+                                    or ("down" in key_press):
                                 self.key_press = 2
+                                self.send_eeg_trigger(int(self.key_press))
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
                     self.stimulus_text.text = " "
@@ -201,16 +205,21 @@ class SuperPrime:
                         self.window.flip()
                         if record_keypress:
                             key_press = event.getKeys(keyList=self.KEY_LIST, timeStamped=False)
-                            if ("1" in key_press) or ("num_end" in key_press) or ("num_1" in key_press):
+                            if ("1" in key_press) or ("num_1" in key_press) or ("num_end" in key_press) \
+                                    or ("end" in key_press) in key_press:  # TODO: "end" not sending key_press
                                 self.key_press = 1
+                                self.send_eeg_trigger(int(self.key_press))
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
-                            elif ("2" in key_press) or ("num_down" in key_press) or ("num_2" in key_press):
+                            elif ("2" in key_press) or ("num_down" in key_press) or ("num_2" in key_press) \
+                                    or ("down" in key_press):
                                 self.key_press = 2
+                                self.send_eeg_trigger(int(self.key_press))
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
                     if record_keypress:
                         self.key_press = "None"
+                        self.send_eeg_trigger(3)  # 3 for null response
                         self.reaction_time = round(timer.getTime() * 1000, 4)
                 else:
                     self.window.flip()
@@ -242,18 +251,18 @@ class SuperPrime:
             eeg_trigger = ""
 
             if event_name == "Fixation":
-                self.display_text(num_frames=wait, text=event_content)
-            elif event_name == "Prime":
                 if self.TASK == "CONCRETENESS DECISION":
-                    eeg_trigger = 0
-                elif self.TASK == "CATEGORY DECISION":
                     eeg_trigger = 1
+                elif self.TASK == "CATEGORY DECISION":
+                    eeg_trigger = 2
                 self.display_text(num_frames=wait, text=event_content, eeg_trigger=eeg_trigger)
-            elif event_name == "Mask":
-                eeg_trigger = self.item_num
+            elif event_name == "Prime":
+                eeg_trigger = int(self.item_num)
                 self.display_text(num_frames=wait, text=event_content, eeg_trigger=eeg_trigger)
+            elif event_name == "Mask":  # no mask in eeg, so no trigger
+                self.display_text(num_frames=wait, text=event_content)
             if event_name == "Target":
-                eeg_trigger = self.related
+                eeg_trigger = int(self.related+1)  # 0 is not a valid eeg trigger
                 self.display_text(text=event_content, key_press=True, eeg_trigger=eeg_trigger)
             elif event_name == "ITI":
                 self.display_text(num_frames=wait)
@@ -286,10 +295,10 @@ class SuperPrime:
                 pass
 
         # this chunk shows introductory instructions
-        self.display_instructions("Stimuli/Instructions/main_instructions.txt")
+        self.display_instructions("Stimuli/Instructions/main_instructionsEEG.txt")
         try:
-            self.display_instructions("Stimuli/Instructions/task_instructions1.txt", task)
-            self.display_instructions("Stimuli/Instructions/task_instructions2.txt", task)
+            self.display_instructions("Stimuli/Instructions/task_instructions1EEG.txt", task)
+            self.display_instructions("Stimuli/Instructions/task_instructions2EEG.txt", task)
             self.display_instructions("Stimuli/Instructions/task_instructions3.txt", task)
         except KeyError:
             print("No corresponding instructions found.")
@@ -300,7 +309,7 @@ class SuperPrime:
             self.current_block_num = 0
             self.display_instructions("Stimuli/Instructions/practice_instructions.txt")
             self.display_block(practice_df)
-            self.display_instructions("Stimuli/Instructions/start_test.txt")
+            self.display_instructions("Stimuli/Instructions/start_testEEG.txt")
 
         # this chunk starts the test blocks
         num_blocks = len(block_df_list)
@@ -420,7 +429,6 @@ class SuperPrime:
         return num_frames_to_wait
 
     def detect_eeg(self):
-        return
         if self.EEG == "TRUE":
             self.port = parallel.ParallelPort(address=0x3ff8)
 
@@ -434,7 +442,6 @@ class SuperPrime:
         if self.EEG != "TRUE":
             return
         else:
-            return
             if trigger is None:
                 return
             self.port.setData(trigger)
