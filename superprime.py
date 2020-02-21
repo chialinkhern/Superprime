@@ -186,14 +186,14 @@ class SuperPrime:
                             self.send_eeg_trigger(eeg_trigger)
                         if record_keypress:
                             key_press = event.getKeys(keyList=self.KEY_LIST, timeStamped=False)
-                            if ("1" in key_press) or ("num_1" in key_press) or ("num_end" in key_press) \
-                                    or ("end" in key_press) in key_press:
+                            if ("1" in key_press) or ("num_1" in key_press) or ("num_end" in key_press) or \
+                                    ("end" in key_press):
                                 self.key_press = 1
                                 self.send_eeg_trigger(int(self.key_press))
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
-                            elif ("2" in key_press) or ("num_down" in key_press) or ("num_2" in key_press) \
-                                    or ("down" in key_press):
+                            elif ("2" in key_press) or ("num_down" in key_press) or ("num_2" in key_press) or \
+                                    ("down" in key_press):
                                 self.key_press = 2
                                 self.send_eeg_trigger(int(self.key_press))
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
@@ -205,14 +205,14 @@ class SuperPrime:
                         self.window.flip()
                         if record_keypress:
                             key_press = event.getKeys(keyList=self.KEY_LIST, timeStamped=False)
-                            if ("1" in key_press) or ("num_1" in key_press) or ("num_end" in key_press) \
-                                    or ("end" in key_press) in key_press:  # TODO: "end" not sending key_press
+                            if ("1" in key_press) or ("num_1" in key_press) or ("num_end" in key_press) or \
+                                    ("end" in key_press):
                                 self.key_press = 1
                                 self.send_eeg_trigger(int(self.key_press))
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
-                            elif ("2" in key_press) or ("num_down" in key_press) or ("num_2" in key_press) \
-                                    or ("down" in key_press):
+                            elif ("2" in key_press) or ("num_down" in key_press) or ("num_2" in key_press) or \
+                                    ("down" in key_press):
                                 self.key_press = 2
                                 self.send_eeg_trigger(int(self.key_press))
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
@@ -262,7 +262,7 @@ class SuperPrime:
             elif event_name == "Mask":  # no mask in eeg, so no trigger
                 self.display_text(num_frames=wait, text=event_content)
             if event_name == "Target":
-                eeg_trigger = int(self.related+1)  # 0 is not a valid eeg trigger
+                eeg_trigger = int(self.related+1)  # 0 is not a valid eeg trigger, so relatedness has to be 1 or 2
                 self.display_text(text=event_content, key_press=True, eeg_trigger=eeg_trigger)
             elif event_name == "ITI":
                 self.display_text(num_frames=wait)
