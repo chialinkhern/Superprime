@@ -400,6 +400,10 @@ class SuperPrime:
             return practice_df, block_df_list
 
         else:  # <=0 indicates that blocks have special names. This is important for instruction showing purposes, etc.
+            if self.RAND_BLOCKS == "TRUE":
+                copy = self.BLOCK_NAMES_LIST[1:]
+                random.shuffle(copy)
+                self.BLOCK_NAMES_LIST[1:] = copy
             for i in range(num_trials):
                 block_name = self.stimuli_df.loc[i, "Block_Name"]
                 self.stimuli_df.loc[i, "Block_Num"] = self.BLOCK_NAMES_LIST.index(block_name)
