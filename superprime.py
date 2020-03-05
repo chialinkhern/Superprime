@@ -219,7 +219,7 @@ class SuperPrime:
                                 record_keypress = False
                     if record_keypress:
                         self.key_press = "None"
-                        self.send_eeg_trigger(3)  # 3 for null response
+                        self.send_eeg_trigger(203)  # 203 for null response
                         self.reaction_time = round(timer.getTime() * 1000, 4)
                 else:
                     self.window.flip()
@@ -293,10 +293,10 @@ class SuperPrime:
                 pass
 
         # this chunk shows introductory instructions
-        self.display_instructions("Stimuli/Instructions/main_instructions.txt")
+        self.display_instructions("Stimuli/Instructions/main_instructionsEEG.txt")
         try:
-            self.display_instructions("Stimuli/Instructions/task_instructions1.txt", task)
-            self.display_instructions("Stimuli/Instructions/task_instructions2.txt", task)
+            self.display_instructions("Stimuli/Instructions/task_instructions1EEG.txt", task)
+            self.display_instructions("Stimuli/Instructions/task_instructions2EEG.txt", task)
             self.display_instructions("Stimuli/Instructions/task_instructions3.txt", task)
         except KeyError:
             print("No corresponding instructions found.")
@@ -307,7 +307,7 @@ class SuperPrime:
             self.current_block_num = 0
             self.display_instructions("Stimuli/Instructions/practice_instructions.txt")
             self.display_block(practice_df)
-            self.display_instructions("Stimuli/Instructions/start_test.txt")
+            self.display_instructions("Stimuli/Instructions/start_testEEG.txt")
 
         # this chunk starts the test blocks
         num_blocks = len(block_df_list)
@@ -434,10 +434,12 @@ class SuperPrime:
     def send_eeg_trigger(self, trigger):
         """
         Sends meaningful codes to the EEG-Computer for data analysis. Kara and I have agreed on the following.
-        Prime:          Concreteness Decision (150) | Category Decision (151)
-        (empty) Mask:   Item-code for target (1~128)
-        Target:         CONCRETENESS DECISION   Unrelated (160) | Related (161)
-                        CATEGORY DECISION       Unrelated (170) | Related (171)
+
+        Fixation:       Concreteness Decision (150) | Category Decision (151)
+        Prime:          Item-code for target (1~128)
+        Target:         CONCRETENESS DECISION   Related (160) | Unrelated (161)
+                        CATEGORY DECISION       Related (170) | Unrelated (171)
+        Response:       1 (201) | 2 (202) | NULL (203)
         """
         if self.EEG != "TRUE":
             return
