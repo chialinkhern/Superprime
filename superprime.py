@@ -208,13 +208,13 @@ class SuperPrime:
                             if ("1" in key_press) or ("num_1" in key_press) or ("num_end" in key_press) or \
                                     ("end" in key_press):
                                 self.key_press = 1
-                                self.send_eeg_trigger(int(self.key_press))
+                                self.send_eeg_trigger(201)
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
                             elif ("2" in key_press) or ("num_down" in key_press) or ("num_2" in key_press) or \
                                     ("down" in key_press):
                                 self.key_press = 2
-                                self.send_eeg_trigger(int(self.key_press))
+                                self.send_eeg_trigger(202)
                                 self.reaction_time = round(timer.getTime() * 1000, 4)
                                 record_keypress = False
                     if record_keypress:
@@ -252,9 +252,9 @@ class SuperPrime:
 
             if event_name == "Fixation":
                 if self.TASK == "CONCRETENESS DECISION":
-                    eeg_trigger = 1
+                    eeg_trigger = 150
                 elif self.TASK == "CATEGORY DECISION":
-                    eeg_trigger = 2
+                    eeg_trigger = 151
                 self.display_text(num_frames=wait, text=event_content, eeg_trigger=eeg_trigger)
             elif event_name == "Prime":
                 eeg_trigger = int(self.item_num)
@@ -262,7 +262,16 @@ class SuperPrime:
             elif event_name == "Mask":  # no mask in eeg, so no trigger
                 self.display_text(num_frames=wait, text=event_content)
             if event_name == "Target":
-                eeg_trigger = int(self.related+1)  # 0 is not a valid eeg trigger, so relatedness has to be 1 or 2
+                if self.TASK == "CONCRETENESS DECISION":
+                    if int(self.related) == 0:
+                        eeg_trigger = 160
+                    if int(self.related) == 1:
+                        eeg_trigger = 161
+                elif self.TASK == "CATEGORY DECISION":
+                    if int(self.related) == 0:
+                        eeg_trigger = 170
+                    if int(self.related) == 1:
+                        eeg_trigger = 171
                 self.display_text(text=event_content, key_press=True, eeg_trigger=eeg_trigger)
             elif event_name == "ITI":
                 self.display_text(num_frames=wait)
@@ -425,9 +434,10 @@ class SuperPrime:
     def send_eeg_trigger(self, trigger):
         """
         Sends meaningful codes to the EEG-Computer for data analysis. Kara and I have agreed on the following.
-        Prime:          Concreteness Decision (0) | Category Decision (1)
+        Prime:          Concreteness Decision (150) | Category Decision (151)
         (empty) Mask:   Item-code for target (1~128)
-        Target:         Unrelated (0) | Related (1)
+        Target:         CONCRETENESS DECISION   Unrelated (160) | Related (161)
+                        CATEGORY DECISION       Unrelated (170) | Related (171)
         """
         if self.EEG != "TRUE":
             return
