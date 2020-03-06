@@ -160,6 +160,7 @@ class SuperPrime:
                             self.stimulus_text.text = text
                             self.window.flip()
                             self.send_eeg_trigger(eeg_trigger)
+                            continue
                         if frameN <= frames_to_display:
                             self.window.flip()
                         else:
