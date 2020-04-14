@@ -1,9 +1,8 @@
-from psychopy import visual, core, event, sound, parallel
+from psychopy import visual, core, event, sound, parallel, logging
 import pandas as pd
 import csv
 import random
 import os
-import collections
 
 
 class SuperPrime:
@@ -294,32 +293,51 @@ class SuperPrime:
             except ValueError:
                 pass
 
-        # this chunk shows introductory instructions
-        self.display_instructions("Stimuli/Instructions/main_instructionsEEG.txt")
-        try:
-            self.display_instructions("Stimuli/Instructions/task_instructions1EEG.txt", task)
-            self.display_instructions("Stimuli/Instructions/task_instructions2EEG.txt", task)
-            self.display_instructions("Stimuli/Instructions/task_instructions3.txt", task)
-        except KeyError:
-            print("No corresponding instructions found.")
-            pass
+        if self.EEG == "TRUE":
+            # this chunk shows introductory instructions
+            self.display_instructions("Stimuli/Instructions/main_instructionsEEG.txt")
+            try:
+                self.display_instructions("Stimuli/Instructions/task_instructions1EEG.txt", task)
+                self.display_instructions("Stimuli/Instructions/task_instructions2EEG.txt", task)
+                self.display_instructions("Stimuli/Instructions/task_instructions3.txt", task)
+            except KeyError:
+                print("No corresponding instructions found.")
+                pass
 
-        # this chunk displays the practice block if there is one
-        if len(practice_df) > 0:
-            self.current_block_num = 0
-            self.display_instructions("Stimuli/Instructions/practice_instructions.txt")
-            self.display_block(practice_df)
-            self.display_instructions("Stimuli/Instructions/start_testEEG.txt")
+            # this chunk displays the practice block if there is one
+            if len(practice_df) > 0:
+                self.current_block_num = 0
+                self.display_instructions("Stimuli/Instructions/practice_instructions.txt")
+                self.display_block(practice_df)
+                self.display_instructions("Stimuli/Instructions/start_testEEG.txt")
+
+        elif self.EEG == "FALSE":
+            # this chunk shows introductory instructions
+            self.display_instructions("Stimuli/Instructions/main_instructions.txt")
+            try:
+                self.display_instructions("Stimuli/Instructions/task_instructions1.txt", task)
+                self.display_instructions("Stimuli/Instructions/task_instructions2.txt", task)
+                self.display_instructions("Stimuli/Instructions/task_instructions3.txt", task)
+            except KeyError:
+                print("No corresponding instructions found.")
+                pass
+
+            # this chunk displays the practice block if there is one
+            if len(practice_df) > 0:
+                self.current_block_num = 0
+                self.display_instructions("Stimuli/Instructions/practice_instructions.txt")
+                self.display_block(practice_df)
+                self.display_instructions("Stimuli/Instructions/start_test.txt")
 
         # this chunk starts the test blocks
         num_blocks = len(block_df_list)
         for block_num in range(1, num_blocks):  # block_num 0 is PRACTICE
-            if block_num == num_blocks:
+            if block_num == num_blocks-1:
                 self.current_block_num = block_num
                 block_name = self.BLOCK_NAMES_LIST[1:][block_num]
                 self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
                 self.display_block(block_df_list[block_num])
-                # no block instructions here
+                # no block break here
             else:
                 self.current_block_num = block_num
                 block_name = self.BLOCK_NAMES_LIST[1:][block_num]
@@ -328,7 +346,10 @@ class SuperPrime:
                 self.display_instructions("Stimuli/Instructions/block_break.txt")
 
         # participant is done!
-        self.display_instructions("Stimuli/Instructions/end.txt")
+        if self.EEG == "TRUE":
+            self.display_instructions("Stimuli/Instructions/endEEG.txt")
+        elif self.EEG == "FALSE":
+            self.display_instructions("Stimuli/Instructions/end.txt")
 
     def load_df(self, file_path):
         """
