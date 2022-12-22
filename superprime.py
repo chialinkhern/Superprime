@@ -240,17 +240,6 @@ class SuperPrime:
                         self.get_audio(text)
                     else:
                         self.get_keypress(timer)
-                        # self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)
-                        # if self.key_press is None:
-                        #     self.key_press = "None"
-                        #     self.reaction_time = round(timer.getTime() * 1000, 4)
-                        # else:
-                        #     self.key_press = self.key_press[0]
-                        #     if self.key_press == "num_1" or "num_end":
-                        #         self.key_press = 1
-                        #     elif self.key_press == "num_2" or "num_down":
-                        #         self.key_press = 2
-                        #     self.reaction_time = round(timer.getTime() * 1000, 4)
 
     def get_keypress(self, timer):  #TODO can instantiate timer inside method, but need to change EEG too
         self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)
@@ -280,7 +269,6 @@ class SuperPrime:
         self.reaction_time = round(onset_time*1000, 4)
         # self.reaction_time = round(mic.event_onset*1000, 4)
         self.key_press = "VOICE"
-
 
     def display_trial(self, trial_series):
         """
@@ -331,7 +319,8 @@ class SuperPrime:
         This procedure puts together the pieces of the experiment into one whole.
         """
         practice_df, block_df_list = self.partition_stimuli()
-        task = self.condition_dict["items"].split("_")[0]
+        # task = self.condition_dict["items"].split("_")[0]  # TODO NEEDS TO BE TASK FROM CONFIG
+        task = self.TASK
 
         # this chunk converts ms to num frames
         for i, event_time_pair in enumerate(self.trial_config_list):
@@ -379,17 +368,11 @@ class SuperPrime:
         # this chunk starts the test blocks
         num_blocks = len(block_df_list)
         for block_num in range(1, num_blocks):  # block_num 0 is PRACTICE
-            if block_num == num_blocks-1:
-                self.current_block_num = block_num
-                block_name = self.BLOCK_NAMES_LIST[1:][block_num]
-                self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
-                self.display_block(block_df_list[block_num])
-                # no block break here
-            else:
-                self.current_block_num = block_num
-                block_name = self.BLOCK_NAMES_LIST[1:][block_num]
-                self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
-                self.display_block(block_df_list[block_num])
+            self.current_block_num = block_num
+            block_name = self.BLOCK_NAMES_LIST[1:][block_num]
+            self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
+            self.display_block(block_df_list[block_num])
+            if block_num != num_blocks-1:  # if not last block
                 self.display_instructions("Stimuli/Instructions/block_break.txt")
 
         # participant is done!
