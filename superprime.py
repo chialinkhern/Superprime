@@ -1,4 +1,4 @@
-from psychopy import visual, core, event, sound, parallel, logging
+from psychopy import event, visual, core, sound, parallel, logging, prefs, voicekey
 import pandas as pd
 import csv
 import random
@@ -68,6 +68,9 @@ class SuperPrime:
                                           color=self.INSTRUCTION_TEXT_COLOR,
                                           bold=False,
                                           italic=False)
+        if self.TASK=="NAMING":
+            voicekey.pyo_init(rate=48000, buffersize=5)  # initializing pyo server for audio processing
+            prefs.hardware["audioLib"] = ["PTB"]  #for audio hardware pref; PTB best
 
         # this chunk: 1) sets up port if EEG, 2) creates the subject log and 3) runs the experiment
         self.port = None
@@ -90,10 +93,19 @@ class SuperPrime:
         task = task_rp_list[0]
         rp = task_rp_list[1]
         list_num = task_rp_list[2]
-        self.FILE_NAME = self.EXP_NAME + '_' + task + '_' + self.CONDITION + '_' + rp + '_' + list_num + '_' + \
-                         str(self.SUBJECT_ID)
 
-        with open('Output/Data/' + self.FILE_NAME + '.csv', 'w', newline='') as csvfile:
+
+        if self.TASK=="NAMING":  # naming data folder will contain not just csv, but also audio clips
+            dir_name = "{}_{}_{}_{}_{}_{}".format(self.TASK, task, self.CONDITION, rp,
+                                                   list_num, str(self.SUBJECT_ID))  # task var is actually part of item list. TODO confusing
+            os.makedirs("Output/Data/"+dir_name, exist_ok=True)
+            self.FILE_NAME = dir_name + "/" + dir_name  # messy, but re-using dirname as filename
+        else:
+            dir_name = ""
+            self.FILE_NAME = self.EXP_NAME + '_' + task + '_' + self.CONDITION + '_' + rp + '_' + list_num + '_' + \
+                             str(self.SUBJECT_ID)
+
+        with open("Output/Data/" + self.FILE_NAME + '.csv', 'w', newline='') as csvfile:
             filewriter = csv.writer(csvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
             filewriter.writerow(header_row)
 
@@ -137,7 +149,7 @@ class SuperPrime:
             self.window.flip()
             event.waitKeys(keyList=["space"])
 
-    def display_text(self, num_frames=None, text=None, key_press=False, eeg_trigger=None):
+    def display_text(self, num_frames=None, text=None, response=False, eeg_trigger=None):
         """
         This procedure displays text for the allotted number of frames.
         """
@@ -152,7 +164,7 @@ class SuperPrime:
                     self.stimulus_text.text = " "
                 self.window.flip()
         else:  # displays text for the allotted number of frames.
-            if key_press is False:
+            if response is False:
                 if self.EEG == "TRUE":
                     frames_to_display = self.time_to_frames(200)
                     for frameN in range(num_frames):
@@ -223,17 +235,44 @@ class SuperPrime:
                         self.reaction_time = round(timer.getTime() * 1000, 4)
                 else:
                     self.window.flip()
-                    self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)
-                    if self.key_press is None:
-                        self.key_press = "None"
-                        self.reaction_time = round(timer.getTime() * 1000, 4)
+                    if self.TASK == "NAMING":
+                        self.get_audio(text)
                     else:
-                        self.key_press = self.key_press[0]
-                        if self.key_press == "num_1" or "num_end":
-                            self.key_press = 1
-                        elif self.key_press == "num_2" or "num_down":
-                            self.key_press = 2
-                        self.reaction_time = round(timer.getTime() * 1000, 4)
+                        self.get_keypress(timer)
+                        # self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)
+                        # if self.key_press is None:
+                        #     self.key_press = "None"
+                        #     self.reaction_time = round(timer.getTime() * 1000, 4)
+                        # else:
+                        #     self.key_press = self.key_press[0]
+                        #     if self.key_press == "num_1" or "num_end":
+                        #         self.key_press = 1
+                        #     elif self.key_press == "num_2" or "num_down":
+                        #         self.key_press = 2
+                        #     self.reaction_time = round(timer.getTime() * 1000, 4)
+
+    def get_keypress(self, timer):  #TODO can instantiate timer inside method, but need to change EEG too
+        self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)
+        if self.key_press is None:
+            self.key_press = "None"
+            self.reaction_time = round(timer.getTime() * 1000, 4)
+        else:
+            self.key_press = self.key_press[0]
+            if self.key_press == "num_1" or "num_end":
+                self.key_press = 1
+            elif self.key_press == "num_2" or "num_down":
+                self.key_press = 2
+            self.reaction_time = round(timer.getTime() * 1000, 4)
+
+    def get_audio(self, text):
+        mic = voicekey.OnsetVoiceKey(sec=self.TIME_OUT, file_out="Output/Data/{}/{}.wav".format(self.FILE_NAME.split("/")[0]
+                                                                                                , text))
+        mic.start()
+        core.wait(self.TIME_OUT)
+        mic.stop()
+        self.reaction_time = round(mic.event_onset*1000, 4)
+        self.key_press = "VOICE"
+
 
     def display_trial(self, trial_series):
         """
@@ -273,7 +312,7 @@ class SuperPrime:
                 self.display_text(num_frames=wait, text=event_content)
             if event_name == "Target":
                 eeg_trigger = int(self.item_num)
-                self.display_text(text=event_content, key_press=True, eeg_trigger=eeg_trigger)
+                self.display_text(text=event_content, response=True, eeg_trigger=eeg_trigger)
             elif event_name == "ITI":
                 self.display_text(num_frames=wait)
 
