@@ -4,6 +4,7 @@ import csv
 import os
 import tkinter as tk
 from datetime import datetime
+import sys
 
 class GUI:
     def __init__(self):
