@@ -1,4 +1,5 @@
-from psychopy import event, visual, core, sound, parallel, logging, prefs, voicekey
+from psychopy import event, visual, core, parallel, prefs, voicekey
+import librosa
 import pandas as pd
 import csv
 import random
@@ -270,7 +271,14 @@ class SuperPrime:
         mic.start()
         core.wait(self.TIME_OUT)
         mic.stop()
-        self.reaction_time = round(mic.event_onset*1000, 4)
+
+        # use librosa to detect onset time. Not ideal bc tuned to instruments, but better than voicekey
+        x, sr = librosa.load("Output/Data/{}/{}.wav".format(self.FILE_NAME.split("/")[0], text))
+        # grab first peak as voice onset
+        onset_frame = librosa.onset.onset_detect(y=x, sr=sr, wait=1, pre_avg=1, post_avg=1, pre_max=1, post_max=1)[0]
+        onset_time = librosa.frames_to_time(onset_frame)
+        self.reaction_time = round(onset_time*1000, 4)
+        # self.reaction_time = round(mic.event_onset*1000, 4)
         self.key_press = "VOICE"
 
 
