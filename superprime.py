@@ -241,35 +241,6 @@ class SuperPrime:
                     else:
                         self.get_keypress(timer)
 
-    def get_keypress(self, timer):  #TODO can instantiate timer inside method, but need to change EEG too
-        self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)
-        if self.key_press is None:
-            self.key_press = "None"
-            self.reaction_time = round(timer.getTime() * 1000, 4)
-        else:
-            self.key_press = self.key_press[0]
-            if self.key_press == "num_1" or "num_end":
-                self.key_press = 1
-            elif self.key_press == "num_2" or "num_down":
-                self.key_press = 2
-            self.reaction_time = round(timer.getTime() * 1000, 4)
-
-    def get_audio(self, text):
-        mic = voicekey.OnsetVoiceKey(sec=self.TIME_OUT, file_out="Output/Data/{}/{}.wav".format(self.FILE_NAME.split("/")[0]
-                                                                                                , text))
-        mic.start()
-        core.wait(self.TIME_OUT)
-        mic.stop()
-
-        # use librosa to detect onset time. Not ideal bc tuned to instruments, but better than voicekey
-        x, sr = librosa.load("Output/Data/{}/{}.wav".format(self.FILE_NAME.split("/")[0], text))
-        # grab first peak as voice onset
-        onset_frame = librosa.onset.onset_detect(y=x, sr=sr, wait=1, pre_avg=1, post_avg=1, pre_max=1, post_max=1)[0]
-        onset_time = librosa.frames_to_time(onset_frame)
-        self.reaction_time = round(onset_time*1000, 4)
-        # self.reaction_time = round(mic.event_onset*1000, 4)
-        self.key_press = "VOICE"
-
     def display_trial(self, trial_series):
         """
         Each trial is made up of a sequence of events. This procedure groups events.
@@ -380,6 +351,36 @@ class SuperPrime:
             self.display_instructions("Stimuli/Instructions/endEEG.txt")
         elif self.EEG == "FALSE":
             self.display_instructions("Stimuli/Instructions/end.txt")
+
+    def get_audio(self, text):
+        mic = voicekey.OnsetVoiceKey(sec=self.TIME_OUT,
+                                     file_out="Output/Data/{}/{}.wav".format(self.FILE_NAME.split("/")[0]
+                                                                             , text))
+        mic.start()
+        core.wait(self.TIME_OUT)
+        mic.stop()
+
+        # use librosa to detect onset time. Not ideal bc tuned to instruments, but better than voicekey
+        x, sr = librosa.load("Output/Data/{}/{}.wav".format(self.FILE_NAME.split("/")[0], text))
+        # grab first peak as voice onset
+        onset_frame = librosa.onset.onset_detect(y=x, sr=sr, wait=1, pre_avg=1, post_avg=1, pre_max=1, post_max=1)[0]
+        onset_time = librosa.frames_to_time(onset_frame)
+        self.reaction_time = round(onset_time * 1000, 4)
+        # self.reaction_time = round(mic.event_onset*1000, 4)
+        self.key_press = "VOICE"
+
+    def get_keypress(self, timer):  #TODO can instantiate timer inside method, but need to change EEG too
+        self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)
+        if self.key_press is None:
+            self.key_press = "None"
+            self.reaction_time = round(timer.getTime() * 1000, 4)
+        else:
+            self.key_press = self.key_press[0]
+            if self.key_press == "num_1" or "num_end":
+                self.key_press = 1
+            elif self.key_press == "num_2" or "num_down":
+                self.key_press = 2
+            self.reaction_time = round(timer.getTime() * 1000, 4)
 
     def load_df(self, file_path):
         """
