@@ -370,7 +370,6 @@ class SuperPrime:
         self.reaction_time = round(onset_time * 1000, 4)
         # self.reaction_time = round(mic.event_onset*1000, 4)
         self.key_press = "VOICE"
-        # TODO GUI error: Int no get()
 
     def get_keypress(self, timer):  #TODO can instantiate timer inside method, but need to change EEG too
         self.key_press = event.waitKeys(keyList=self.KEY_LIST, maxWait=self.TIME_OUT)
