@@ -1,5 +1,4 @@
 from psychopy import event, visual, core, parallel, prefs, voicekey
-import librosa
 import pandas as pd
 import csv
 import random
@@ -360,9 +359,12 @@ class SuperPrime:
                                                                              , text))
         mic.start()
         mic.detect()
-        core.wait(self.TIME_OUT)
-        mic.stop()
-
+        mic.join(self.TIME_OUT)  # calls self.stop() at end of wait, which calls self.save()
+        core.wait(0.25)  # helps avoid ReferenceError: weakly-referenced object no longer exists
+        """
+        'ReferenceError: weakly-referenced object no longer exists' happens because code assigns new OnsetVoiceKey to var mic each trial and pyo expects old object. 
+        Janky solution is to wait a little.  
+        """
         self.reaction_time = round(mic.event_onset*1000, 4)
         # self.reaction_time = "???"
         self.key_press = "VOICE"
