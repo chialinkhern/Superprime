@@ -338,7 +338,7 @@ class SuperPrime:
 
         # this chunk starts the test blocks
         num_blocks = len(block_df_list)
-        for i in range(1, num_blocks):  # block_num 0 is PRACTICE
+        for i in range(num_blocks):  # block_num 0 is PRACTICE
             self.current_block_num = i + 1  # for logging and alignment purposes
             block_name = self.BLOCK_NAMES_LIST[1:][self.current_block_num]
             self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
