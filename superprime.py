@@ -338,12 +338,12 @@ class SuperPrime:
 
         # this chunk starts the test blocks
         num_blocks = len(block_df_list)
-        for block_num in range(1, num_blocks):  # block_num 0 is PRACTICE
-            self.current_block_num = block_num
-            block_name = self.BLOCK_NAMES_LIST[1:][block_num]
+        for i in range(1, num_blocks):  # block_num 0 is PRACTICE
+            self.current_block_num = i + 1  # for logging and alignment purposes
+            block_name = self.BLOCK_NAMES_LIST[1:][self.current_block_num]
             self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
-            self.display_block(block_df_list[block_num])
-            if block_num != num_blocks-1:  # if not last block
+            self.display_block(block_df_list[self.current_block_num])
+            if self.current_block_num != num_blocks-1:  # if not last block
                 self.display_instructions("Stimuli/Instructions/block_break.txt")
 
         # participant is done!
