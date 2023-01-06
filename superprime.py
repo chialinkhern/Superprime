@@ -342,7 +342,7 @@ class SuperPrime:
             block_name = self.BLOCK_NAMES_LIST[1:][i]
             self.display_instructions("Stimuli/Instructions/block_instructions.txt", block_name)
             self.display_block(block_df_list[i])
-            if self.current_block_num != num_blocks-1:  # if not last block
+            if self.current_block_num < num_blocks-1:  # if not last block
                 self.display_instructions("Stimuli/Instructions/block_break.txt")
 
         # participant is done!
