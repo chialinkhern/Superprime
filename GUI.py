@@ -176,7 +176,7 @@ class GUI:
                 self.blocks = -1
                 self.config_dict['BLOCKS'] = self.blocks
             else:
-                self.blocks.set(10)  # default value for convenience
+                self.blocks.set(8)  # default value for convenience
                 self.popup('How many blocks?', 'Number of Blocks', True, self.blocks)
 
             self.config_dict['KEY'] = self.key.get()
