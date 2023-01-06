@@ -359,17 +359,12 @@ class SuperPrime:
                                      file_out="Output/Data/{}/{}.wav".format(self.FILE_NAME.split("/")[0]
                                                                              , text))
         mic.start()
+        mic.detect()
         core.wait(self.TIME_OUT)
         mic.stop()
 
-        # use librosa to detect onset time. Not ideal bc tuned to instruments, but better than voicekey
-        # x, sr = librosa.load("Output/Data/{}/{}.wav".format(self.FILE_NAME.split("/")[0], text))
-        # # grab first peak as voice onset
-        # onset_frame = librosa.onset.onset_detect(y=x, sr=sr, wait=1, pre_avg=1, post_avg=1, pre_max=1, post_max=1)[0]
-        # onset_time = librosa.frames_to_time(onset_frame)
-        # self.reaction_time = round(onset_time * 1000, 4)
-        ## self.reaction_time = round(mic.event_onset*1000, 4)
-        self.reaction_time = "???"
+        self.reaction_time = round(mic.event_onset*1000, 4)
+        # self.reaction_time = "???"
         self.key_press = "VOICE"
 
     def get_keypress(self, timer):  #TODO can instantiate timer inside method, but need to change EEG too
