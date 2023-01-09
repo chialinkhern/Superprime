@@ -351,6 +351,13 @@ class SuperPrime:
         elif self.EEG == "FALSE":
             self.display_instructions("Stimuli/Instructions/end.txt")
 
+    def frames_to_time(self, num_frames):
+        """
+        :param num_frames: the number of frames desired
+        :return: amount of time for a clock to wait
+        """
+        return self.screen_refresh_rate * num_frames
+
     def get_audio(self, text):
         mic = voicekey.OnsetVoiceKey(sec=self.TIME_OUT,
                                      more_processing=True,
@@ -360,7 +367,8 @@ class SuperPrime:
         mic.start()
         mic.detect()
         mic.join(self.TIME_OUT)  # calls self.stop() at end of wait, which calls self.save()
-        core.wait(0.25)  # helps avoid ReferenceError: weakly-referenced object no longer exists
+        ms_to_wait = self.frames_to_time(num_frames=1)/1000  #TODO
+        core.wait(ms_to_wait)  # waits for one frame. Helps avoid ReferenceError: weakly-referenced object no longer exists
         """
         'ReferenceError: weakly-referenced object no longer exists' happens because code assigns new OnsetVoiceKey to var mic each trial and pyo expects old object. 
         Janky solution is to wait a little.  
@@ -513,6 +521,7 @@ class SuperPrime:
         num_frames_to_wait = round(num_milliseconds/ms_per_frame)  # round() returns an int that is closest
 
         return num_frames_to_wait
+
 
     def write_log(self):
         row = []
