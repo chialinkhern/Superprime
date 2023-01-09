@@ -367,7 +367,7 @@ class SuperPrime:
         mic.start()
         mic.detect()
         mic.join(self.TIME_OUT)  # calls self.stop() at end of wait, which calls self.save()
-        ms_to_wait = self.frames_to_time(num_frames=1)/1000  #TODO
+        ms_to_wait = self.frames_to_time(num_frames=1)/1000
         core.wait(ms_to_wait)  # waits for one frame. Helps avoid ReferenceError: weakly-referenced object no longer exists
         """
         'ReferenceError: weakly-referenced object no longer exists' happens because code assigns new OnsetVoiceKey to var mic each trial and pyo expects old object. 
