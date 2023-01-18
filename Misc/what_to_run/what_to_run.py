@@ -1,6 +1,6 @@
 import pandas as pd
 
-num_to_run = 290
+num_to_run = 64
 
 
 def give_subjs(csv):
@@ -31,9 +31,9 @@ def tracker(row, cond, tracker_dict):
 
 
 def main():
-    csv_df = pd.read_csv('Superprime_Subject_Counts.csv')
+    csv_df = pd.read_csv('subj_num_log.csv')
     to_run = give_subjs(csv_df)
-    to_run.to_csv('to_run.csv')
+    to_run.to_csv('to_run.csv', index=False)
 
 
 main()
